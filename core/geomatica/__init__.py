@@ -261,12 +261,14 @@ class GA:
       continue
      sum = 0
      for mask in block:
-      norm = -1 if 2 <= mask.bit_count() % 4 <= 3 else 1
-      for i in range(mask.bit_length()): norm *= ga.signature((mask >> i) & 1)
+      norm = -1 if mask.bit_count() % 4 >= 2 else 1
+      for i in range(mask.bit_length()):
+       if (mask >> i) & 1: norm *= ga.signature(i)
+       
       sum += norm * self.__d[mask]**2
      value = math.sqrt(abs(sum))
      prod *= Multivector({0: math.cosh(value), **{mask:math.sinh(value)*self.__d[mask]/value for mask in block}})if sum > 0else Multivector({0: 1, **{mask: self.__d[mask] for mask in block}})if sum == 0else Multivector({0: math.cos(value), **{mask:math.sin(value)*self.__d[mask]/value for mask in block}})
-    return prod
+    return prod if isinstance(prod, Multivector) else Multivector({0: prod})
    def __pos__(self) -> int | None:
     grade = None
     for mask in self.__d.keys():
