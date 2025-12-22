@@ -303,7 +303,7 @@ class GA {
                         cumulus += current;
                         n++
                     }
-                    => sum
+                    => cumulus
                 }
                 import math;
                 prod = 1.0;

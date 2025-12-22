@@ -252,7 +252,7 @@ class GA:
       if 1+abs(ldexp(sum(s*s for s in current.__d.values()),-ga.epsilon_order)) == 1: break
       cumulus += current
       n+=1
-     return sum
+     return cumulus
     import math
     prod = 1.0
     for block in d:
