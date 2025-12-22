@@ -69,7 +69,7 @@ class GA {
         ga.signature = signature;
         ga.epsilon_order = epsilon_order;
 
-        class Multivector {
+        class Multivector(IMultivector) {
             := __init__(self, keys:dict[int, float], **argv) >: None {
                 from math import ldexp;
                 self.__d = -{k:v for k, v -> keys.items() if 1+abs(ldexp(v,-ga.epsilon_order)) != 1}-;
@@ -349,14 +349,14 @@ class GA {
                 => other*(self**(-1))
             }
 
-            := __format__(self, form: str) >: str :=> ''.join(('+' if value > 0 else '') + format(value, form) + ''.join(
+            := __format__(self, form: str) >: str :=> '<'+(''.join(('+' if value > 0 else '') + format(value, form) + ''.join(
                 'e' + str(i+1).translate(_subscripts) for i -> range(mask.bit_length()) if (mask >> i) & 1)
-                for mask, value -> self.__d.items()).removeprefix('+') if self.__d else format(0.0,form);
+                for mask, value -> self.__d.items()).removeprefix('+') if self.__d else format(0.0,form))+'>';
 
             := __str__(self) >: str :=> f'{self:g}'
         }
 
-        ga.Multivector = Multivector
+        ga.__Multivector = Multivector
     }
     := __getitem__(self, n: int) >: IMultivector {
         """
@@ -364,6 +364,6 @@ class GA {
         and the zero Multivector if n < 0.
         """;
 
-        => self.Multivector(-{(1<<(n-1) if n > 0 else 0): 1.0}- if n >= 0 else -{}-)
+        => self.__Multivector(-{(1<<(n-1) if n > 0 else 0): 1.0}- if n >= 0 else -{}-)
     }
 }

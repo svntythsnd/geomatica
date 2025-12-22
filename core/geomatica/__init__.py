@@ -75,7 +75,7 @@ class GA:
         """
   ga.signature = signature
   ga.epsilon_order = epsilon_order
-  class Multivector:
+  class Multivector(IMultivector):
    def __init__(self, keys:dict[int, float], **argv) -> None:
     from math import ldexp
     self.__d = {k:v for k, v in keys.items() if 1+abs(ldexp(v,-ga.epsilon_order)) != 1}
@@ -280,14 +280,14 @@ class GA:
    def __rtruediv__(self, other: int | float) -> 'Multivector':
     if not isinstance(other, int | float) : return NotImplemented
     return other*(self**(-1))
-   def __format__(self, form: str) -> str : return ''.join(('+' if value > 0 else '') + format(value, form) + ''.join('e' + str(i+1).translate(_subscripts) for i in range(mask.bit_length()) if (mask >> i) & 1)for mask, value in self.__d.items()).removeprefix('+') if self.__d else format(0.0,form)
+   def __format__(self, form: str) -> str : return '<'+(''.join(('+' if value > 0 else '') + format(value, form) + ''.join('e' + str(i+1).translate(_subscripts) for i in range(mask.bit_length()) if (mask >> i) & 1)for mask, value in self.__d.items()).removeprefix('+') if self.__d else format(0.0,form))+'>'
    def __str__(self) -> str : return f'{self:g}'
-  ga.Multivector = Multivector
+  ga.__Multivector = Multivector
  def __getitem__(self, n: int) -> IMultivector:
   """
         Get the nth basis vector of the GA if n > 1, the unit scalar if n = 0
         and the zero Multivector if n < 0.
         """
-  return self.Multivector({(1<<(n-1) if n > 0 else 0): 1.0} if n >= 0 else {})
+  return self.__Multivector({(1<<(n-1) if n > 0 else 0): 1.0} if n >= 0 else {})
  
 
