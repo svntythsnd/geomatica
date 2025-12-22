@@ -1,0 +1,9 @@
+test.py
+test/**
+test-npy/**
+core/dist/**
+core/build/**
+core/*egg-info/**
+.idea/**
+core/__pycache__/**
+core/spherica/__pycache__/**

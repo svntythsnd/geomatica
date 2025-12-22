@@ -1,0 +1,369 @@
+from typing import Callable as _Callable, Protocol as _Protocol, Union as _Union;
+
+class IMultivector(_Protocol) {
+    := __add__(self, other: _Union[int, float, 'IMultivector']) >: 'IMultivector' {}
+    := __radd__(self, other: _Union[int, float, 'IMultivector']) >: 'IMultivector' {}
+    := __sub__(self, other: _Union[int, float, 'IMultivector']) >: 'IMultivector' {}
+    := __rsub__(self, other: _Union[int, float, 'IMultivector']) >: 'IMultivector' {}
+    := __neg__(self) >: 'IMultivector' {}
+    := __invert__(self) >: 'IMultivector' { """Return the adjugate of the Multivector.""" }
+    := __mul__(self, other: _Union[int, float, 'IMultivector']) >: 'IMultivector' { """Compute e^M either by decomposing the Multivector into commuting blocks or, if that fails, explicit Taylor expansion.""" }
+    := __rmul__(self, other: int | float) >: 'IMultivector' {}
+    := __pow__(self, other: int | float) >: 'IMultivector' {}
+    := __rpow__(self, other: int | float) >: 'IMultivector' { """Exponentiate the Multivector by applying e^(M ln b).""" }
+    := __abs__(self) >: float { """Return the determinant of the Multivector.""" }
+    := __matmul__(self, grade: int) >: 'IMultivector' { """Extract a specific grade of the Multivector.""" }
+    := __truediv__(self, other: _Union[int, float, 'IMultivector']) >: 'IMultivector' {}
+    := __rtruediv__(self, other: int | float) >: 'IMultivector' {}
+    := __or__(self, other: _Union[int, float, 'IMultivector']) >: 'IMultivector' { """Return the dot product of two Multivectors.""" }
+    := __xor__(self, other: _Union[int, float, 'IMultivector']) >: 'IMultivector' { """Return the wedge product of two Multivectors.""" }
+    := __pos__(self) >: int | None { """Return the grade of the multivector if it's a blade, None otherwise.""" }
+    := __format__(self, form: str) >: str {}
+    := __str__(self) >: str {}
+    := exp(self) >: 'IMultivector' {}
+}
+
+_subscripts = str.maketrans('0123456789','₀₁₂₃₄₅₆₇₈₉');
+
+:= _merge_sort_parity(arr) {
+    if len(arr) <= 1 :=> arr, 1;
+
+    mid = len(arr) ~/ 2;
+    left, p_left = _merge_sort_parity(arr[:mid]);
+    right, p_right = _merge_sort_parity(arr[mid:]);
+
+    merged = [];
+    parity = p_left * p_right;
+
+    i = j = 0;
+    while i < len(left) && j < len(right) {
+        if left[i] <= right[j] {
+            merged.append(left[i]);
+            i += 1;
+            continue
+        }
+        merged.append(right[j]);
+        j += 1;
+        if (len(left) - i) & 1: parity = -parity
+    }
+
+    merged.extend(left[i:]);
+    merged.extend(right[j:]);
+
+    => merged, parity
+}
+
+
+class GA {
+    := __init__(ga, *, signature:_Callable[[int], float]=;=x:1.0, epsilon_order:int=0) {
+        """
+        Create a Geometric Algebra.
+
+        Args:
+            signature: a Callable returning the square of the nth basis vector.
+                       Defaults to 1 for all.
+            epsilon_order:  integer offset for machine epsilon comparisons.
+                       The effective bound for treating numbers as zero is
+                       2^-epsilon_order times the machine epsilon. Defaults to 0.
+        """;
+        ga.signature = signature;
+        ga.epsilon_order = epsilon_order;
+
+        class Multivector {
+            := __init__(self, keys:dict[int, float], **argv) >: None {
+                from math import ldexp;
+                self.__d = -{k:v for k, v -> keys.items() if 1+abs(ldexp(v,-ga.epsilon_order)) != 1}-;
+                self.__decomposable = argv.get("decomposable",None);
+                self.__decomposition = argv.get("decomposition",None);
+                self.__sigma = None;
+            }
+
+            := __add__(self, other: _Union[int, float, 'Multivector']) >: 'Multivector' {
+                if isinstance(other, int | float) :=> Multivector(-{0: self.__d.get(0, 0) + other,
+                                                        **-{mask: value for mask, value -> self.__d.items() if mask != 0}-}-,
+                                                        decomposable=self.__decomposable, decomposition=self.__decomposition);
+                if !isinstance(other, Multivector) :=> NotImplemented;
+                => Multivector(-{mask: self.__d.get(mask, 0) + other._Multivector__d.get(mask, 0) for mask -> sorted(self.__d.keys() | other._Multivector__d.keys())}-)
+            }
+
+            := __radd__(self, other: _Union[int, float, 'Multivector']) >: 'Multivector' :=> self+other;
+
+            := __sub__(self, other: _Union[int, float, 'Multivector']) >: 'Multivector' :=> self+(-other);
+
+            := __rsub__(self,other: _Union[int, float, 'Multivector']) >: 'Multivector':=> -self+other;
+
+            := __neg__(self) >: 'Multivector' :=> Multivector(-{mask: -val for mask, val -> self.__d.items()}-, decomposition=self.__decomposition, decomposable=self.__decomposable);
+
+            := __invert__(self) >: 'Multivector' {
+                sigma = self.__get_sigma();
+                => Multivector(-{k: -v if (sigma >> n)&1 else v for n, (k, v) -> enumerate(self.__d.items())}-,
+                            decomposition=self.__decomposition, decomposable=self.__decomposable)
+            }
+
+            := __rmul__(self, other: int | float) >: 'Multivector' {
+                if isinstance(other, int | float) :=> self*other;
+                => NotImplemented
+            }
+
+            := __pow__(self, other: int | float) >: 'Multivector' {
+                if !isinstance(other, int | float) :=> NotImplemented;
+                from math import ldexp;
+                if 1 + abs(ldexp(other, -ga.epsilon_order)) % 1 != 1: raise ValueError(f'Multivector exponent must be an integer, but got {other}');
+                other -= other % 1;
+                if other == 0 :=> ga[0];
+                if other < 0: out = (~self)/abs(self);
+                else: out = self;
+                for _ -> range(abs(other)-1): out *= self;
+                => out
+            }
+
+            := __abs__(self) >: float :=> (self*~self)._Multivector__d.get(0, 0);
+
+            := __get_sigma(self) {
+                if self.__sigma !=& None :=> self.__sigma;
+                blades = list(self.__d.keys());
+                if added <- blades[0] != 0: blades = [0] + blades;
+                from collections import deque;
+
+                n = len(blades);
+                grades = [b.bit_count() for b -> blades];
+
+                epsilon = [[0]*n for _ -> range(n)];
+                for i -> range(n) {
+                    for j -> range(n) {
+                        t = (blades[i] & blades[j]).bit_count();
+                        parity = (grades[i]*grades[j] - t) & 1;
+                        epsilon[i][j] = -1 if parity else +1
+                    }
+                }
+
+                sigma = 0;
+                known = 1;
+
+                queue = deque([0]);
+
+                while queue {
+                    i = queue.popleft();
+                    si = -1 if (sigma >> i) & 1 else +1;
+
+                    for j -> range(n) {
+                        if i == j: continue;
+
+                        required_sign = -epsilon[i][j] * si;
+                        required_bit = 1 if required_sign == -1 else 0;
+
+                        mask = 1 << j;
+
+                        if !(known & mask) {
+                            if required_bit: sigma |= mask;
+                            else: sigma &= ~mask;
+
+                            known |= mask;
+                            queue.append(j);
+                            continue
+                        }
+
+                        current_bit = (sigma >> j) & 1;
+                        if current_bit != required_bit: raise ValueError("No adjugate exists (inconsistent constraints)")
+                    }
+                } => sigma >> 1 if added else sigma
+            }
+
+            := __rpow__(self, other: int | float) >: 'Multivector' {
+                if !isinstance(other, int | float) :=> NotImplemented;
+                import math;
+                => (math.log(other)*self).exp()
+            }
+
+            @staticmethod;
+            := __mulbases(mask1, mask2) {
+                val = 1;
+                bases = [i for i -> range(mask1.bit_length()) if (mask1 >> i) & 1] + [i for i -> range(mask2.bit_length()) if (mask2 >> i) & 1];
+                seen = set();
+                for basis -> tuple(bases) {
+                    if basis -> seen: continue;
+                    seen.add(basis);
+                    diff = 0;
+                    keep = False;
+                    for n, factor -> enumerate(reversed(tuple(bases))) {
+                        if factor != basis: continue;
+                        keep = !keep;
+                        if keep {
+                            diff = n;
+                            continue;
+                        }
+                        if n % 2 == diff % 2: val *= -1;
+                        bases.pop(~diff);
+                        bases.pop(~n+1 if n>diff else ~n);
+                        val *= ga.signature(basis);
+                    }
+                }
+
+                bases, parity = _merge_sort_parity(bases);
+                bases = sum(1 << i for i -> bases);
+
+                => bases, val*parity
+            }
+
+            := __or__(self, other: _Union[int, float, 'Multivector']) >: 'Multivector' {
+                if isinstance(other, int | float) :=> self*other;
+                new = -{}-;
+                for mask1, val1 -> self.__d.items() {
+                    for mask2, val2 -> other._Multivector__d.items() {
+                        if (mask1^mask2).bit_count() != abs(mask1.bit_count() - mask2.bit_count()): continue;
+                        mask, basisprod = self.__mulbases(mask1, mask2);
+                        new[mask] = new.get(mask, 0) + val1*val2*basisprod
+                    }
+                } => Multivector(dict(sorted(new.items())))
+            }
+
+            := __xor__(self, other: _Union[int, float, 'Multivector']) >: 'Multivector' {
+                if isinstance(other, int | float) :=> ga[-1];
+                new = -{}-;
+                for mask1, val1 -> self.__d.items() {
+                    for mask2, val2 -> other._Multivector__d.items() {
+                        if (mask1^mask2).bit_count() != mask1.bit_count() + mask2.bit_count(): continue;
+                        mask, basisprod = self.__mulbases(mask1, mask2);
+                        new[mask] = new.get(mask, 0) + val1*val2*basisprod
+                    }
+                } => Multivector(dict(sorted(new.items())))
+            }
+
+            := __mul__(self, other: _Union[int, float, 'Multivector']) >: 'Multivector' {
+                from math import ldexp;
+                if isinstance(other, int | float) :=> Multivector(-{mask: other*val for mask, val -> self.__d.items()}-,
+                        decomposable=self.__decomposable, decomposition=self.__decomposition) if 1+abs(ldexp(other, -ga.epsilon_order)) != 1 else Multivector(-{}-);
+                elif !isinstance(other, Multivector) :=> NotImplemented;
+                new = -{}-;
+                for mask1, val1 -> self.__d.items() {
+                    for mask2, val2 -> other._Multivector__d.items() {
+                        mask, basisprod = self.__mulbases(mask1, mask2);
+                        new[mask] = new.get(mask, 0) + val1*val2*basisprod
+                    }
+                }
+                => Multivector(dict(sorted(new.items())))
+            }
+
+            := __matmul__(self, grade: int) >: 'Multivector' {
+                if !isinstance(grade, int) :=> NotImplemented;
+                => Multivector(-{mask: val for mask, val -> self.__d.items() if mask.bit_count() == grade}-)
+            }
+
+            := __decompose(self) {
+                if self.__decomposable !=& None :=> self.__decomposition;
+                commutes =;= mask1,mask2: mask1.bit_count()*mask2.bit_count()%2 == (mask1&mask2).bit_count()%2;
+                blocks = [];
+                for mask -> self.__d.keys() {
+                    noncom = 0;
+                    noncomindex = None;
+                    for n, block -> enumerate(blocks) {
+                        comtrack = None;
+                        for item -> block {
+                            if comtrack =& None {
+                                comtrack = commutes(mask, item);
+                                continue
+                            }
+
+                            if comtrack !=& commutes(mask, item) {
+                                self.__decomposable = False;
+                                self.__decomposition = None;
+                                => None
+                            }
+                        }
+                        if comtrack =& False {
+                            noncomindex = n;
+                            noncom++
+                        }
+                    }
+                    if noncom == 0: blocks.append([mask]);
+                    elif noncom == 1: blocks[noncomindex].append(mask);
+                    else {
+                        self.__decomposable = False;
+                        self.__decomposition = None;
+                        => None
+                    }
+                }
+
+                self.__decomposable = True;
+                self.__decomposition = blocks;
+                => blocks
+            }
+
+            := exp(self) >: 'Multivector' {
+                d = self.__decompose();
+                if !self.__decomposable {
+                    from math import ldexp;
+                    current = self;
+                    cumulus = ga[0] + current;
+                    n = 2;
+                    ~{
+                        current *= self;
+                        current /= n;
+                        if 1+abs(ldexp(sum(s*s for s -> current.__d.values()),-ga.epsilon_order)) == 1: break;
+                        cumulus += current;
+                        n++
+                    }
+                    => sum
+                }
+                import math;
+                prod = 1.0;
+                for block -> d {
+                    if block == [0] {
+                        prod *= math.exp(self.__d[0]);
+                        continue
+                    }
+
+                    sum = 0;
+                    for mask -> block {
+                        norm = -1 if 2 <= mask.bit_count() % 4 <= 3 else 1;
+                        for i -> range(mask.bit_length()): norm *= ga.signature((mask >> i) & 1);
+                        sum += norm * self.__d[mask]**2
+                    }
+
+                    value = math.sqrt(abs(sum));
+
+                    prod *= Multivector(-{0: math.cosh(value), **-{mask:math.sinh(value)*self.__d[mask]/value for mask -> block}-}-)
+                            if sum > 0
+                       else Multivector(-{0: 1, **-{mask: self.__d[mask] for mask -> block}-}-)
+                            if sum == 0
+                       else Multivector(-{0: math.cos(value), **-{mask:math.sin(value)*self.__d[mask]/value for mask -> block}-}-)
+                } => prod
+            }
+
+            := __pos__(self) >: int | None {
+                grade = None;
+                for mask -> self.__d.keys() {
+                    if grade =& None: grade = mask.bit_count();
+                    elif mask.bit_count() != grade :=> None
+                } => grade
+            }
+
+            := __truediv__(self, other: _Union[int, float, 'Multivector']) >: 'Multivector' {
+                if isinstance(other, int | float) :=> Multivector(-{mask: value/other for mask, value -> self.__d.items()}-);
+                if !isinstance(other, Multivector) :=> NotImplemented;
+                => self*(other**(-1))
+            }
+
+            := __rtruediv__(self, other: int | float) >: 'Multivector' {
+                if !isinstance(other, int | float) :=> NotImplemented;
+                => other*(self**(-1))
+            }
+
+            := __format__(self, form: str) >: str :=> ''.join(('+' if value > 0 else '') + format(value, form) + ''.join(
+                'e' + str(i+1).translate(_subscripts) for i -> range(mask.bit_length()) if (mask >> i) & 1)
+                for mask, value -> self.__d.items()).removeprefix('+') if self.__d else format(0.0,form);
+
+            := __str__(self) >: str :=> f'{self:g}'
+        }
+
+        ga.Multivector = Multivector
+    }
+    := __getitem__(self, n: int) >: IMultivector {
+        """
+        Get the nth basis vector of the GA if n > 1, the unit scalar if n = 0
+        and the zero Multivector if n < 0.
+        """;
+
+        => self.Multivector(-{(1<<(n-1) if n > 0 else 0): 1.0}- if n >= 0 else -{}-)
+    }
+}
