@@ -1,10 +1,10 @@
-### spherica
-... is a library for implementing points in S³ in python
+### Geometrica
+... is a library for implementing Geometric Algebra in Python
 
 
-# under construction.
+To start, `pip install geometrica` and create a Geometric Algebra with `geometrica.GA()`. The rest you can find in documentation :)
 
 ---
-pypi: [HERE!](https://pypi.org/project/spherica)
+pypi: [HERE!](https://pypi.org/project/geometrica)
 
-github: [HERE!](https://github.com/svntythsnd/spherica)
+github: [HERE!](https://github.com/svntythsnd/geometrica)
