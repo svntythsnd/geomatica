@@ -149,6 +149,9 @@ class GA:
     return (math.log(other)*self).exp()
    @staticmethod
    def __mulbases(mask1, mask2):
+    if mask1 == 0 : return mask2, 1
+    if mask2 == 0 : return mask1, 1
+    if mask1 == mask2 : return 0, -1 if mask1.bit_count() % 4 >= 2 else 1
     val = 1
     bases = [i for i in range(mask1.bit_length()) if (mask1 >> i) & 1] + [i for i in range(mask2.bit_length()) if (mask2 >> i) & 1]
     seen = set()
