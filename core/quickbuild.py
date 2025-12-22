@@ -1,3 +1,3 @@
 import nestpython as nsp
 
-nsp.files.nbuild('geometrica-npy', 'geometrica', erase_dir=True)
+nsp.files.nbuild('geomatica-npy', 'geomatica', erase_dir=True)
