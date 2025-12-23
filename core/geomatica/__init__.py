@@ -1,49 +1,68 @@
-from typing import Callable as _Callable, Protocol as _Protocol, Union as _Union, runtime_checkable as _runtime_checkable
-@_runtime_checkable
-class IMultivector(_Protocol):
- """
-    Attributes:
-        algebra: a reference to the Multivector's parent GA.
-    """
- algebra: 'GA'
+from typing import Callable as _Callable, Union as _Union
+from abc import ABC as _ABC, abstractmethod as _absd
+class IMultivector(_ABC):
+ @property
+ @_absd
+ def algebra(self) -> 'GA':
+  """a reference to the Multivector's parent GA.""" 
+ @_absd
  def __add__(self, other: _Union[int, float, 'IMultivector']) -> 'IMultivector':
   pass
+ @_absd
  def __radd__(self, other: _Union[int, float, 'IMultivector']) -> 'IMultivector':
   pass
+ @_absd
  def __sub__(self, other: _Union[int, float, 'IMultivector']) -> 'IMultivector':
   pass
+ @_absd
  def __rsub__(self, other: _Union[int, float, 'IMultivector']) -> 'IMultivector':
   pass
+ @_absd
  def __neg__(self) -> 'IMultivector':
   pass
+ @_absd
  def __invert__(self) -> 'IMultivector':
   """Return the adjugate of the Multivector.""" 
+ @_absd
  def __mul__(self, other: _Union[int, float, 'IMultivector']) -> 'IMultivector':
   """Compute e^M either by decomposing the Multivector into commuting blocks or, if that fails, explicit Taylor expansion.""" 
+ @_absd
  def __rmul__(self, other: int | float) -> 'IMultivector':
   pass
+ @_absd
  def __pow__(self, other: int | float) -> 'IMultivector':
   pass
+ @_absd
  def __rpow__(self, other: int | float) -> 'IMultivector':
   """Exponentiate the Multivector by applying e^(M ln b).""" 
+ @_absd
  def __abs__(self) -> float:
   """Return the determinant of the Multivector.""" 
+ @_absd
  def __matmul__(self, grade: int) -> 'IMultivector':
   """Extract a specific grade of the Multivector.""" 
+ @_absd
  def __truediv__(self, other: _Union[int, float, 'IMultivector']) -> 'IMultivector':
   pass
+ @_absd
  def __rtruediv__(self, other: int | float) -> 'IMultivector':
   pass
+ @_absd
  def __or__(self, other: _Union[int, float, 'IMultivector']) -> 'IMultivector':
   """Return the dot product of two Multivectors.""" 
+ @_absd
  def __xor__(self, other: _Union[int, float, 'IMultivector']) -> 'IMultivector':
   """Return the wedge product of two Multivectors.""" 
+ @_absd
  def __pos__(self) -> int | None:
   """Return the grade of the Multivector if it's a blade, None otherwise.""" 
+ @_absd
  def __format__(self, form: str) -> str:
   pass
+ @_absd
  def __str__(self) -> str:
   pass
+ @_absd
  def exp(self) -> 'IMultivector':
   pass
  
@@ -81,6 +100,7 @@ class GA:
                        The effective bound for treating numbers as zero is
                        2^-epsilon_order times the machine epsilon.
     """
+ __slots__ = ('signature', 'epsilon_order', '__Multivector')
  signature: _Callable[[int], float]
  epsilon_order: int
  def __init__(ga, *, signature:_Callable[[int], float]= lambda x:1.0, epsilon_order:int=0):
@@ -97,14 +117,16 @@ class GA:
   ga.signature = signature
   ga.epsilon_order = epsilon_order
   class Multivector(IMultivector):
+   @property
+   def algebra(self) -> GA : return ga
+   __slots__ = ('__d', '__decomposition', '__sigma')
    def __init__(self, keys:dict[int, float], **argv) -> None:
     from math import ldexp
-    self.algebra = ga
     self.__d = {k:v for k, v in keys.items() if 1+abs(ldexp(v,-self.algebra.epsilon_order)) != 1}
     self.__decomposition = argv.get("decomposition", ...)
-    self.__sigma = ...
+    self.__sigma = argv.get("sigma", ...)
    def __add__(self, other: _Union[int, float, 'Multivector']) -> 'Multivector':
-    if isinstance(other, int | float) : return Multivector({0: self.__d.get(0, 0) + other,**{mask: value for mask, value in self.__d.items() if mask != 0}},decomposition=self.__decomposition)
+    if isinstance(other, int | float) : return Multivector({0: self.__d.get(0, 0) + other,**{mask: value for mask, value in self.__d.items() if mask != 0}},decomposition=self.__decomposition, sigma=self.__sigma)
     if not isinstance(other, Multivector):
      if isinstance(other, IMultivector): raise GAMismatchError("Cannot combine Multivectors from different GA instances")
      return NotImplemented
@@ -136,6 +158,9 @@ class GA:
     if self.__sigma is None: raise NoAdjugateError(f'Adjugate undefined for {self}')
     if self.__sigma is not ... : return self.__sigma
     blades = list(self.__d.keys())
+    if len(blades) == 0:
+     self.__sigma = 0
+     return 0
     if added := blades[0] != 0: blades = [0] + blades
     from collections import deque
     n = len(blades)
@@ -235,7 +260,7 @@ class GA:
     return Multivector(dict(sorted(new.items())))
    def __mul__(self, other: _Union[int, float, 'Multivector']) -> 'Multivector':
     from math import ldexp
-    if isinstance(other, int | float) : return Multivector({mask: other*val for mask, val in self.__d.items()},decomposition=self.__decomposition) if 1+abs(ldexp(other, -self.algebra.epsilon_order)) != 1 else Multivector({})
+    if isinstance(other, int | float) : return Multivector({mask: other*val for mask, val in self.__d.items()},decomposition=self.__decomposition, sigma=self.__sigma)if 1+abs(ldexp(other, -self.algebra.epsilon_order)) != 1else Multivector({})
     elif not isinstance(other, Multivector):
      if isinstance(other, IMultivector): raise GAMismatchError("Cannot combine Multivectors from different GA instances")
      return NotImplemented
@@ -315,7 +340,7 @@ class GA:
      elif mask.bit_count() != grade : return None
     return grade
    def __truediv__(self, other: _Union[int, float, 'Multivector']) -> 'Multivector':
-    if isinstance(other, int | float) : return Multivector({mask: value/other for mask, value in self.__d.items()})
+    if isinstance(other, int | float) : return Multivector({mask: value/other for mask, value in self.__d.items()},decomposition=self.__decomposition, sigma=self.__sigma)
     if not isinstance(other, Multivector):
      if isinstance(other, IMultivector): raise GAMismatchError("Cannot combine Multivectors from different GA instances")
      return NotImplemented
@@ -332,5 +357,10 @@ class GA:
         and the zero Multivector if n < 0.
         """
   return self.__Multivector({(1<<(n-1) if n > 0 else 0): 1.0} if n >= 0 else {})
+ def __call__(self, multivector: IMultivector) -> IMultivector:
+  """
+        Convert any Multivector to a Multivector of this GA.
+        """
+  return self.__Multivector(multivector._Multivector__d,decomposition=multivector._Multivector__decomposition,sigma=multivector._Multivector__sigma)
  def __str__(self) -> str : return f"GA<signature={getattr(self.signature, '__name__', repr(self.signature))}, epsilon_order={self.epsilon_order}>"
 
