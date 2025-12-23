@@ -23,6 +23,8 @@ class IMultivector(_Protocol) {
     := exp(self) >: 'IMultivector' {}
 }
 
+class NoAdjugateError(ValueError) { """Raised when a multivector does not admit an adjugate.""" }
+
 _subscripts = str.maketrans('0123456789','₀₁₂₃₄₅₆₇₈₉');
 
 := _merge_sort_parity(arr) {
@@ -73,15 +75,14 @@ class GA {
             := __init__(self, keys:dict[int, float], **argv) >: None {
                 from math import ldexp;
                 self.__d = -{k:v for k, v -> keys.items() if 1+abs(ldexp(v,-ga.epsilon_order)) != 1}-;
-                self.__decomposable = argv.get("decomposable",None);
-                self.__decomposition = argv.get("decomposition",None);
-                self.__sigma = None;
+                self.__decomposition = argv.get("decomposition", ...);
+                self.__sigma = ...;
             }
 
             := __add__(self, other: _Union[int, float, 'Multivector']) >: 'Multivector' {
                 if isinstance(other, int | float) :=> Multivector(-{0: self.__d.get(0, 0) + other,
                                                         **-{mask: value for mask, value -> self.__d.items() if mask != 0}-}-,
-                                                        decomposable=self.__decomposable, decomposition=self.__decomposition);
+                                                        decomposition=self.__decomposition);
                 if !isinstance(other, Multivector) :=> NotImplemented;
                 => Multivector(-{mask: self.__d.get(mask, 0) + other._Multivector__d.get(mask, 0) for mask -> sorted(self.__d.keys() | other._Multivector__d.keys())}-)
             }
@@ -92,12 +93,12 @@ class GA {
 
             := __rsub__(self,other: _Union[int, float, 'Multivector']) >: 'Multivector':=> -self+other;
 
-            := __neg__(self) >: 'Multivector' :=> Multivector(-{mask: -val for mask, val -> self.__d.items()}-, decomposition=self.__decomposition, decomposable=self.__decomposable);
+            := __neg__(self) >: 'Multivector' :=> Multivector(-{mask: -val for mask, val -> self.__d.items()}-, decomposition=self.__decomposition);
 
             := __invert__(self) >: 'Multivector' {
                 sigma = self.__get_sigma();
                 => Multivector(-{k: -v if (sigma >> n)&1 else v for n, (k, v) -> enumerate(self.__d.items())}-,
-                            decomposition=self.__decomposition, decomposable=self.__decomposable)
+                            decomposition=self.__decomposition)
             }
 
             := __rmul__(self, other: int | float) >: 'Multivector' {
@@ -109,10 +110,12 @@ class GA {
                 if !isinstance(other, int | float) :=> NotImplemented;
                 from math import ldexp;
                 if 1 + abs(ldexp(other, -ga.epsilon_order)) % 1 != 1: raise ValueError(f'Multivector exponent must be an integer, but got {other}');
-                other -= other % 1;
+                other = int(round(other));
                 if other == 0 :=> ga[0];
-                if other < 0: out = (~self)/abs(self);
-                else: out = self;
+                if other < 0 {
+                    if det <- abs(self): out = (~self)/det;
+                    else: raise ZeroDivisionError(f"Cannot invert {self}: determinant is zero")
+                } else: out = self;
                 for _ -> range(abs(other)-1): out *= self;
                 => out
             }
@@ -120,7 +123,8 @@ class GA {
             := __abs__(self) >: float :=> (self*~self)._Multivector__d.get(0, 0);
 
             := __get_sigma(self) {
-                if self.__sigma !=& None :=> self.__sigma;
+                if self.__sigma =& None: raise NoAdjugateError(f'Adjugate undefined for {self}');
+                if self.__sigma !=& ... :=> self.__sigma;
                 blades = list(self.__d.keys());
                 if added <- blades[0] != 0: blades = [0] + blades;
                 from collections import deque;
@@ -164,7 +168,10 @@ class GA {
                         }
 
                         current_bit = (sigma >> j) & 1;
-                        if current_bit != required_bit: raise ValueError("No adjugate exists (inconsistent constraints)")
+                        if current_bit != required_bit {
+                            self.__sigma = None;
+                            raise NoAdjugateError(f'Adjugate undefined for {self}')
+                        }
                     }
                 } => sigma >> 1 if added else sigma
             }
@@ -235,7 +242,7 @@ class GA {
             := __mul__(self, other: _Union[int, float, 'Multivector']) >: 'Multivector' {
                 from math import ldexp;
                 if isinstance(other, int | float) :=> Multivector(-{mask: other*val for mask, val -> self.__d.items()}-,
-                        decomposable=self.__decomposable, decomposition=self.__decomposition) if 1+abs(ldexp(other, -ga.epsilon_order)) != 1 else Multivector(-{}-);
+                        decomposition=self.__decomposition) if 1+abs(ldexp(other, -ga.epsilon_order)) != 1 else Multivector(-{}-);
                 elif !isinstance(other, Multivector) :=> NotImplemented;
                 new = -{}-;
                 for mask1, val1 -> self.__d.items() {
@@ -253,7 +260,7 @@ class GA {
             }
 
             := __decompose(self) {
-                if self.__decomposable !=& None :=> self.__decomposition;
+                if self.__decomposition !=& ... :=> self.__decomposition;
                 commutes =;= mask1,mask2: mask1.bit_count()*mask2.bit_count()%2 == (mask1&mask2).bit_count()%2;
                 blocks = [];
                 for mask -> self.__d.keys() {
@@ -268,7 +275,6 @@ class GA {
                             }
 
                             if comtrack !=& commutes(mask, item) {
-                                self.__decomposable = False;
                                 self.__decomposition = None;
                                 => None
                             }
@@ -281,20 +287,18 @@ class GA {
                     if noncom == 0: blocks.append([mask]);
                     elif noncom == 1: blocks[noncomindex].append(mask);
                     else {
-                        self.__decomposable = False;
                         self.__decomposition = None;
                         => None
                     }
                 }
 
-                self.__decomposable = True;
                 self.__decomposition = blocks;
                 => blocks
             }
 
             := exp(self) >: 'Multivector' {
                 d = self.__decompose();
-                if !self.__decomposable {
+                if d =& None {
                     from math import ldexp;
                     current = self;
                     cumulus = ga[0] + current;
@@ -316,20 +320,20 @@ class GA {
                         continue
                     }
 
-                    sum = 0;
+                    total = 0;
                     for mask -> block {
                         norm = -1 if mask.bit_count() % 4 >= 2 else 1;
                         for i -> range(mask.bit_length()) {
                             if (mask >> i) & 1: norm *= ga.signature(i);
-                        } sum += norm * self.__d[mask]**2
+                        } total += norm * self.__d[mask]**2
                     }
 
-                    value = math.sqrt(abs(sum));
+                    value = math.sqrt(abs(total));
 
                     prod *= Multivector(-{0: math.cosh(value), **-{mask:math.sinh(value)*self.__d[mask]/value for mask -> block}-}-)
-                            if sum > 0
+                            if total > 0
                        else Multivector(-{0: 1, **-{mask: self.__d[mask] for mask -> block}-}-)
-                            if sum == 0
+                            if total == 0
                        else Multivector(-{0: math.cos(value), **-{mask:math.sin(value)*self.__d[mask]/value for mask -> block}-}-)
                 } => prod if isinstance(prod, Multivector) else Multivector(-{0: prod}-)
             }
