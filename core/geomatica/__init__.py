@@ -122,7 +122,7 @@ class GA:
    def __pow__(self, other: int | float) -> 'Multivector':
     if not isinstance(other, int | float) : return NotImplemented
     from math import ldexp
-    if 1 + abs(ldexp(other, -self.algebra.epsilon_order)) % 1 != 1: raise ValueError(f'Multivector exponent must be an integer, but got {other}')
+    if 1 + abs(ldexp(other % 1, -self.algebra.epsilon_order)) != 1: raise ValueError(f'Multivector exponent must be an integer, but got {other}')
     other = int(round(other))
     if other == 0 : return self.algebra[0]
     if other < 0:
