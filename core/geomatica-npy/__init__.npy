@@ -1,6 +1,12 @@
-from typing import Callable as _Callable, Protocol as _Protocol, Union as _Union;
+from typing import Callable as _Callable, Protocol as _Protocol, Union as _Union, runtime_checkable as _runtime_checkable;
 
+@_runtime_checkable;
 class IMultivector(_Protocol) {
+    """
+    Attributes:
+        algebra: a reference to the Multivector's parent GA.
+    """;
+    algebra: 'GA';
     := __add__(self, other: _Union[int, float, 'IMultivector']) >: 'IMultivector' {}
     := __radd__(self, other: _Union[int, float, 'IMultivector']) >: 'IMultivector' {}
     := __sub__(self, other: _Union[int, float, 'IMultivector']) >: 'IMultivector' {}
@@ -17,13 +23,14 @@ class IMultivector(_Protocol) {
     := __rtruediv__(self, other: int | float) >: 'IMultivector' {}
     := __or__(self, other: _Union[int, float, 'IMultivector']) >: 'IMultivector' { """Return the dot product of two Multivectors.""" }
     := __xor__(self, other: _Union[int, float, 'IMultivector']) >: 'IMultivector' { """Return the wedge product of two Multivectors.""" }
-    := __pos__(self) >: int | None { """Return the grade of the multivector if it's a blade, None otherwise.""" }
+    := __pos__(self) >: int | None { """Return the grade of the Multivector if it's a blade, None otherwise.""" }
     := __format__(self, form: str) >: str {}
     := __str__(self) >: str {}
     := exp(self) >: 'IMultivector' {}
 }
 
-class NoAdjugateError(ValueError) { """Raised when a multivector does not admit an adjugate.""" }
+class NoAdjugateError(ValueError) { """Raised when a Multivector does not admit an adjugate.""" }
+class GAMismatchError(TypeError) { """Raised when two Multivectors from different GA instances are combined.""" }
 
 _subscripts = str.maketrans('0123456789','₀₁₂₃₄₅₆₇₈₉');
 
@@ -57,6 +64,17 @@ _subscripts = str.maketrans('0123456789','₀₁₂₃₄₅₆₇₈₉');
 
 
 class GA {
+    """
+    A container representing a Geometric Algebra.
+
+    Attributes:
+        signature: a Callable returning the square of the nth basis vector.
+        epsilon_order: integer offset for machine epsilon comparisons.
+                       The effective bound for treating numbers as zero is
+                       2^-epsilon_order times the machine epsilon.
+    """;
+    signature: _Callable[[int], float];
+    epsilon_order: int;
     := __init__(ga, *, signature:_Callable[[int], float]=;=x:1.0, epsilon_order:int=0) {
         """
         Create a Geometric Algebra.
@@ -64,7 +82,7 @@ class GA {
         Args:
             signature: a Callable returning the square of the nth basis vector.
                        Defaults to 1 for all.
-            epsilon_order:  integer offset for machine epsilon comparisons.
+            epsilon_order: integer offset for machine epsilon comparisons.
                        The effective bound for treating numbers as zero is
                        2^-epsilon_order times the machine epsilon. Defaults to 0.
         """;
@@ -74,16 +92,20 @@ class GA {
         class Multivector(IMultivector) {
             := __init__(self, keys:dict[int, float], **argv) >: None {
                 from math import ldexp;
-                self.__d = -{k:v for k, v -> keys.items() if 1+abs(ldexp(v,-ga.epsilon_order)) != 1}-;
+                self.algebra = ga;
+                self.__d = -{k:v for k, v -> keys.items() if 1+abs(ldexp(v,-self.algebra.epsilon_order)) != 1}-;
                 self.__decomposition = argv.get("decomposition", ...);
-                self.__sigma = ...;
+                self.__sigma = ...
             }
 
             := __add__(self, other: _Union[int, float, 'Multivector']) >: 'Multivector' {
                 if isinstance(other, int | float) :=> Multivector(-{0: self.__d.get(0, 0) + other,
                                                         **-{mask: value for mask, value -> self.__d.items() if mask != 0}-}-,
                                                         decomposition=self.__decomposition);
-                if !isinstance(other, Multivector) :=> NotImplemented;
+                if !isinstance(other, Multivector) {
+                    if isinstance(other, IMultivector): raise GAMismatchError("Cannot combine Multivectors from different GA instances");
+                    => NotImplemented
+                }
                 => Multivector(-{mask: self.__d.get(mask, 0) + other._Multivector__d.get(mask, 0) for mask -> sorted(self.__d.keys() | other._Multivector__d.keys())}-)
             }
 
@@ -109,9 +131,9 @@ class GA {
             := __pow__(self, other: int | float) >: 'Multivector' {
                 if !isinstance(other, int | float) :=> NotImplemented;
                 from math import ldexp;
-                if 1 + abs(ldexp(other, -ga.epsilon_order)) % 1 != 1: raise ValueError(f'Multivector exponent must be an integer, but got {other}');
+                if 1 + abs(ldexp(other, -self.algebra.epsilon_order)) % 1 != 1: raise ValueError(f'Multivector exponent must be an integer, but got {other}');
                 other = int(round(other));
-                if other == 0 :=> ga[0];
+                if other == 0 :=> self.algebra[0];
                 if other < 0 {
                     if det <- abs(self): out = (~self)/det;
                     else: raise ZeroDivisionError(f"Cannot invert {self}: determinant is zero")
@@ -182,11 +204,15 @@ class GA {
                 => (math.log(other)*self).exp()
             }
 
-            @staticmethod;
-            := __mulbases(mask1, mask2) {
+            := __mulbases(self, mask1, mask2) {
                 if mask1 == 0 :=> mask2, 1;
                 if mask2 == 0 :=> mask1, 1;
-                if mask1 == mask2 :=> 0, -1 if mask1.bit_count() % 4 >= 2 else 1;
+                if mask1 == mask2 {
+                    init = -1 if mask1.bit_count() % 4 >= 2 else 1;
+                    for n -> range(mask1.bit_length()) {
+                        if (mask1 >> n) & 1: init *= self.algebra.signature(n+1)
+                    } => 0, init
+                }
                 val = 1;
                 bases = [i for i -> range(mask1.bit_length()) if (mask1 >> i) & 1] + [i for i -> range(mask2.bit_length()) if (mask2 >> i) & 1];
                 seen = set();
@@ -205,7 +231,7 @@ class GA {
                         if n % 2 == diff % 2: val *= -1;
                         bases.pop(~diff);
                         bases.pop(~n+1 if n>diff else ~n);
-                        val *= ga.signature(basis);
+                        val *= self.algebra.signature(basis+1);
                     }
                 }
 
@@ -217,6 +243,10 @@ class GA {
 
             := __or__(self, other: _Union[int, float, 'Multivector']) >: 'Multivector' {
                 if isinstance(other, int | float) :=> self*other;
+                if !isinstance(other, Multivector) {
+                    if isinstance(other, IMultivector): raise GAMismatchError("Cannot combine Multivectors from different GA instances");
+                    => NotImplemented
+                }
                 new = -{}-;
                 for mask1, val1 -> self.__d.items() {
                     for mask2, val2 -> other._Multivector__d.items() {
@@ -229,6 +259,10 @@ class GA {
 
             := __xor__(self, other: _Union[int, float, 'Multivector']) >: 'Multivector' {
                 if isinstance(other, int | float) :=> ga[-1];
+                if !isinstance(other, Multivector) {
+                    if isinstance(other, IMultivector): raise GAMismatchError("Cannot combine Multivectors from different GA instances");
+                    => NotImplemented
+                }
                 new = -{}-;
                 for mask1, val1 -> self.__d.items() {
                     for mask2, val2 -> other._Multivector__d.items() {
@@ -242,16 +276,18 @@ class GA {
             := __mul__(self, other: _Union[int, float, 'Multivector']) >: 'Multivector' {
                 from math import ldexp;
                 if isinstance(other, int | float) :=> Multivector(-{mask: other*val for mask, val -> self.__d.items()}-,
-                        decomposition=self.__decomposition) if 1+abs(ldexp(other, -ga.epsilon_order)) != 1 else Multivector(-{}-);
-                elif !isinstance(other, Multivector) :=> NotImplemented;
+                        decomposition=self.__decomposition) if 1+abs(ldexp(other, -self.algebra.epsilon_order)) != 1 else Multivector(-{}-);
+                elif !isinstance(other, Multivector) {
+                    if isinstance(other, IMultivector): raise GAMismatchError("Cannot combine Multivectors from different GA instances");
+                    => NotImplemented
+                }
                 new = -{}-;
                 for mask1, val1 -> self.__d.items() {
                     for mask2, val2 -> other._Multivector__d.items() {
                         mask, basisprod = self.__mulbases(mask1, mask2);
                         new[mask] = new.get(mask, 0) + val1*val2*basisprod
                     }
-                }
-                => Multivector(dict(sorted(new.items())))
+                } => Multivector(dict(sorted(new.items())))
             }
 
             := __matmul__(self, grade: int) >: 'Multivector' {
@@ -306,7 +342,7 @@ class GA {
                     ~{
                         current *= self;
                         current /= n;
-                        if 1+abs(ldexp(sum(s*s for s -> current.__d.values()),-ga.epsilon_order)) == 1: break;
+                        if 1+abs(ldexp(sum(s*s for s -> current.__d.values()),-self.algebra.epsilon_order)) == 1: break;
                         cumulus += current;
                         n++
                     }
@@ -324,7 +360,7 @@ class GA {
                     for mask -> block {
                         norm = -1 if mask.bit_count() % 4 >= 2 else 1;
                         for i -> range(mask.bit_length()) {
-                            if (mask >> i) & 1: norm *= ga.signature(i);
+                            if (mask >> i) & 1: norm *= self.algebra.signature(i+1);
                         } total += norm * self.__d[mask]**2
                     }
 
@@ -348,7 +384,10 @@ class GA {
 
             := __truediv__(self, other: _Union[int, float, 'Multivector']) >: 'Multivector' {
                 if isinstance(other, int | float) :=> Multivector(-{mask: value/other for mask, value -> self.__d.items()}-);
-                if !isinstance(other, Multivector) :=> NotImplemented;
+                if !isinstance(other, Multivector) {
+                    if isinstance(other, IMultivector): raise GAMismatchError("Cannot combine Multivectors from different GA instances");
+                    => NotImplemented
+                }
                 => self*(other**(-1))
             }
 
@@ -374,4 +413,5 @@ class GA {
 
         => self.__Multivector(-{(1<<(n-1) if n > 0 else 0): 1.0}- if n >= 0 else -{}-)
     }
+    := __str__(self) >: str :=> f"GA<signature={getattr(self.signature, '__name__', repr(self.signature))}, epsilon_order={self.epsilon_order}>"
 }
