@@ -158,13 +158,12 @@ class GA {
                 from collections import deque;
 
                 n = len(blades);
-                grades = [b.bit_count() for b -> blades];
 
                 epsilon = [[0]*n for _ -> range(n)];
                 for i -> range(n) {
                     for j -> range(n) {
                         t = (blades[i] & blades[j]).bit_count();
-                        parity = (grades[i]*grades[j] - t) & 1;
+                        parity = (blades[i].bit_count()*blades[j].bit_count() - t) & 1;
                         epsilon[i][j] = -1 if parity else +1
                     }
                 }
@@ -197,7 +196,10 @@ class GA {
 
                         current_bit = (sigma >> j) & 1;
                         if current_bit != required_bit {
-                            self.__sigma = None;
+                            if +(self*self) == 0 {
+                                self.__sigma = 0;
+                                => 0
+                            } self.__sigma = None;
                             raise NoAdjugateError(f'Adjugate undefined for {self}')
                         }
                     }

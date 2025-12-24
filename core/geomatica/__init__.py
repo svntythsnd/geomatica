@@ -170,12 +170,11 @@ class GA:
     if added := blades[0] != 0: blades = [0] + blades
     from collections import deque
     n = len(blades)
-    grades = [b.bit_count() for b in blades]
     epsilon = [[0]*n for _ in range(n)]
     for i in range(n):
      for j in range(n):
       t = (blades[i] & blades[j]).bit_count()
-      parity = (grades[i]*grades[j] - t) & 1
+      parity = (blades[i].bit_count()*blades[j].bit_count() - t) & 1
       epsilon[i][j] = -1 if parity else +1
      
     sigma = 0
@@ -197,6 +196,9 @@ class GA:
        continue
       current_bit = (sigma >> j) & 1
       if current_bit != required_bit:
+       if +(self*self) == 0:
+        self.__sigma = 0
+        return 0
        self.__sigma = None
        raise NoAdjugateError(f'Adjugate undefined for {self}')
       
