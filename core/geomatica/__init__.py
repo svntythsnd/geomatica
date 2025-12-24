@@ -1,4 +1,4 @@
-from typing import Callable as _Callable, Union as _Union
+from typing import Callable as _Callable, Union as _Union, overload as _overload
 from abc import ABC as _ABC, abstractmethod as _absd
 class IMultivector(_ABC):
  @property
@@ -49,9 +49,15 @@ class IMultivector(_ABC):
   pass
  @_absd
  def __or__(self, other: _Union[int, float, 'IMultivector']) -> 'IMultivector':
-  """Return the dot product of two Multivectors.""" 
+  """Return the Perwass dot product of two Multivectors.""" 
+ @_absd
+ def __ror__(self, other: int | float) -> 'IMultivector':
+  """Return the Perwass dot product of two Multivectors.""" 
  @_absd
  def __xor__(self, other: _Union[int, float, 'IMultivector']) -> 'IMultivector':
+  """Return the wedge product of two Multivectors.""" 
+ @_absd
+ def __rxor__(self, other: int | float) -> 'IMultivector':
   """Return the wedge product of two Multivectors.""" 
  @_absd
  def __pos__(self) -> int | None:
@@ -245,8 +251,11 @@ class GA:
       new[mask] = new.get(mask, 0) + val1*val2*basisprod
      
     return Multivector(dict(sorted(new.items())))
+   def __ror__(self, other: int | float) -> 'Multivector':
+    if not isinstance(other, int | float) : return NotImplemented
+    return self*other
    def __xor__(self, other: _Union[int, float, 'Multivector']) -> 'Multivector':
-    if isinstance(other, int | float) : return ga[-1]
+    if isinstance(other, int | float) : return self.algebra[-1]
     if not isinstance(other, Multivector):
      if isinstance(other, IMultivector): raise GAMismatchError("Cannot combine Multivectors from different GA instances")
      return NotImplemented
@@ -258,6 +267,9 @@ class GA:
       new[mask] = new.get(mask, 0) + val1*val2*basisprod
      
     return Multivector(dict(sorted(new.items())))
+   def __rxor__(self, other: int | float) -> 'Multivector':
+    if not isinstance(other, int | float) : return NotImplemented
+    return self.algebra[-1]
    def __mul__(self, other: _Union[int, float, 'Multivector']) -> 'Multivector':
     from math import ldexp
     if isinstance(other, int | float) : return Multivector({mask: other*val for mask, val in self.__d.items()},decomposition=self.__decomposition, sigma=self.__sigma)if 1+abs(ldexp(other, -self.algebra.epsilon_order)) != 1else Multivector({})
@@ -308,7 +320,7 @@ class GA:
     if d is None:
      from math import ldexp
      current = self
-     cumulus = ga[0] + current
+     cumulus = self.algebra[0] + current
      n = 2
      while True:
       current *= self
@@ -351,12 +363,23 @@ class GA:
    def __format__(self, form: str) -> str : return '<'+(''.join(('+' if value > 0 else '') + format(value, form) + ''.join('e' + str(i+1).translate(_subscripts) for i in range(mask.bit_length()) if (mask >> i) & 1)for mask, value in self.__d.items()).removeprefix('+') if self.__d else format(0.0,form))+'>'
    def __str__(self) -> str : return f'{self:g}'
   ga.__Multivector = Multivector
+ @_overload
  def __getitem__(self, n: int) -> IMultivector:
+  pass
+ @_overload
+ def __getitem__(self, n: slice) -> tuple[IMultivector]:
+  pass
+ def __getitem__(self, n):
   """
         Get the nth basis vector of the GA if n > 1, the unit scalar if n = 0
         and the zero Multivector if n < 0.
         """
-  return self.__Multivector({(1<<(n-1) if n > 0 else 0): 1.0} if n >= 0 else {})
+  if isinstance(n, int) : return self.__Multivector({(1<<(n-1) if n > 0 else 0): 1.0} if n >= 0 else {})
+  if not isinstance(n, slice) : return NotImplemented
+  if n.stop is None: raise ValueError('Cannot create an open-ended slice of GA; please specify a finite stop index.')
+  step = n.step or 1
+  start = n.start or 0
+  return tuple(self[n] for n in range(start, n.stop, step))
  def __call__(self, multivector: IMultivector) -> IMultivector:
   """
         Convert any Multivector to a Multivector of this GA.

@@ -1,4 +1,4 @@
-from typing import Callable as _Callable, Union as _Union;
+from typing import Callable as _Callable, Union as _Union, overload as _overload;
 from abc import ABC as _ABC, abstractmethod as _absd;
 
 class IMultivector(_ABC) {
@@ -17,8 +17,10 @@ class IMultivector(_ABC) {
     @_absd; := __matmul__(self, grade: int) >: 'IMultivector' { """Extract a specific grade of the Multivector.""" }
     @_absd; := __truediv__(self, other: _Union[int, float, 'IMultivector']) >: 'IMultivector' {}
     @_absd; := __rtruediv__(self, other: int | float) >: 'IMultivector' {}
-    @_absd; := __or__(self, other: _Union[int, float, 'IMultivector']) >: 'IMultivector' { """Return the dot product of two Multivectors.""" }
+    @_absd; := __or__(self, other: _Union[int, float, 'IMultivector']) >: 'IMultivector' { """Return the Perwass dot product of two Multivectors.""" }
+    @_absd; := __ror__(self, other: int | float) >: 'IMultivector' { """Return the Perwass dot product of two Multivectors.""" }
     @_absd; := __xor__(self, other: _Union[int, float, 'IMultivector']) >: 'IMultivector' { """Return the wedge product of two Multivectors.""" }
+    @_absd; := __rxor__(self, other: int | float) >: 'IMultivector' { """Return the wedge product of two Multivectors.""" }
     @_absd; := __pos__(self) >: int | None { """Return the grade of the Multivector if it's a blade, None otherwise.""" }
     @_absd; := __format__(self, form: str) >: str {}
     @_absd; := __str__(self) >: str {}
@@ -261,8 +263,13 @@ class GA {
                 } => Multivector(dict(sorted(new.items())))
             }
 
+            := __ror__(self, other: int | float) >: 'Multivector' {
+                if !isinstance(other, int | float) :=> NotImplemented;
+                => self*other
+            }
+
             := __xor__(self, other: _Union[int, float, 'Multivector']) >: 'Multivector' {
-                if isinstance(other, int | float) :=> ga[-1];
+                if isinstance(other, int | float) :=> self.algebra[-1];
                 if !isinstance(other, Multivector) {
                     if isinstance(other, IMultivector): raise GAMismatchError("Cannot combine Multivectors from different GA instances");
                     => NotImplemented
@@ -275,6 +282,11 @@ class GA {
                         new[mask] = new.get(mask, 0) + val1*val2*basisprod
                     }
                 } => Multivector(dict(sorted(new.items())))
+            }
+
+            := __rxor__(self, other: int | float) >: 'Multivector' {
+                if !isinstance(other, int | float) :=> NotImplemented;
+                => self.algebra[-1]
             }
 
             := __mul__(self, other: _Union[int, float, 'Multivector']) >: 'Multivector' {
@@ -343,7 +355,7 @@ class GA {
                 if d =& None {
                     from math import ldexp;
                     current = self;
-                    cumulus = ga[0] + current;
+                    cumulus = self.algebra[0] + current;
                     n = 2;
                     ~{
                         current *= self;
@@ -413,13 +425,20 @@ class GA {
         ga.__Multivector = Multivector
     }
 
-    := __getitem__(self, n: int) >: IMultivector {
+    @_overload; := __getitem__(self, n: int) >: IMultivector {}
+    @_overload; := __getitem__(self, n: slice) >: tuple[IMultivector] {}
+
+    := __getitem__(self, n){
         """
         Get the nth basis vector of the GA if n > 1, the unit scalar if n = 0
         and the zero Multivector if n < 0.
         """;
-
-        => self.__Multivector(-{(1<<(n-1) if n > 0 else 0): 1.0}- if n >= 0 else -{}-)
+        if isinstance(n, int) :=> self.__Multivector(-{(1<<(n-1) if n > 0 else 0): 1.0}- if n >= 0 else -{}-);
+        if !isinstance(n, slice) :=> NotImplemented;
+        if n.stop =& None: raise ValueError('Cannot create an open-ended slice of GA; please specify a finite stop index.');
+        step = n.step || 1;
+        start = n.start || 0;
+        => tuple(self[n] for n -> range(start, n.stop, step))
     }
 
     := __call__(self, multivector: IMultivector) >: IMultivector {
