@@ -196,9 +196,10 @@ class GA:
        continue
       current_bit = (sigma >> j) & 1
       if current_bit != required_bit:
-       if +(self*self) == 0:
-        self.__sigma = 0
-        return 0
+       if +(self*(2*self@0-self)) == 0:
+        self.__sigma = sum(1 << n for n, b in enumerate(blades) if b != 0)
+        if added: self.__sigma >>= 1
+        return self.__sigma
        self.__sigma = None
        raise NoAdjugateError(f'Adjugate undefined for {self}')
       
@@ -302,6 +303,9 @@ class GA:
         comtrack = commutes(mask, item)
         continue
        if comtrack is not commutes(mask, item):
+        if +(self*self) == 0:
+         self.__decomposition = NotImplemented
+         return NotImplemented
         self.__decomposition = None
         return None
        
@@ -332,6 +336,9 @@ class GA:
       n+=1
      return cumulus
     import math
+    if d is NotImplemented:
+     if (s := (self|self).__d.get(0,0)) != 0: value = math.sqrt(abs(s))
+     return self.algebra[0]*math.cosh(value) + self*math.sinh(value)/value if s > 0else self.algebra[0] + self if s == 0else self.algebra[0]*math.cos(value) + self*math.sin(value)/value
     prod = 1.0
     for block in d:
      if block == [0]:
@@ -344,7 +351,7 @@ class GA:
        if (mask >> i) & 1: norm *= self.algebra.signature(i+1)
        
       total += norm * self.__d[mask]**2
-     value = math.sqrt(abs(total))
+     if total != 0: value = math.sqrt(abs(total))
      prod *= Multivector({0: math.cosh(value), **{mask:math.sinh(value)*self.__d[mask]/value for mask in block}})if total > 0else Multivector({0: 1, **{mask: self.__d[mask] for mask in block}})if total == 0else Multivector({0: math.cos(value), **{mask:math.sin(value)*self.__d[mask]/value for mask in block}})
     return prod if isinstance(prod, Multivector) else Multivector({0: prod})
    def __pos__(self) -> int | None:
