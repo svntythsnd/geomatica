@@ -70,7 +70,10 @@ class IMultivector(_ABC):
   pass
  @_absd
  def __float__(self) -> float:
-  pass
+  """Convert a scalar Multivector to a float.""" 
+ @_absd
+ def __int__(self) -> float:
+  """Convert a scalar Multivector to an int.""" 
  @_absd
  def exp(self) -> 'IMultivector':
   pass
@@ -375,9 +378,13 @@ class GA:
    def __format__(self, form: str) -> str : return '<'+(''.join(('+' if value > 0 else '') + format(value, form) + ''.join('e' + str(i+1).translate(_subscripts) for i in range(mask.bit_length()) if (mask >> i) & 1)for mask, value in self.__d.items()).removeprefix('+') if self.__d else format(0.0,form))+'>'
    def __str__(self) -> str : return f'{self:g}'
    def __float__(self) -> float:
-    if (l := len(self.__d)) > 1: raise ValueError(f"Cannot extract a single float from composite Multivector (found {l} terms)")
-    if l == 0 : return 0.0
-    return next(iter(self.__d.values()))
+    if (l := len(self.__d)) == 0 : return 0.0
+    elif l == 1 and 0 in self.__d : return self.__d[0]
+    raise ValueError(f"Cannot convert to float: Multivector is not a scalar")
+   def __int__(self) -> int:
+    if (l := len(self.__d)) == 0 : return 0
+    elif l == 1 and 0 in self.__d : return int(self.__d[0])
+    raise ValueError(f"Cannot convert to int: Multivector is not a scalar")
    
   ga.__Multivector = Multivector
  @_overload
