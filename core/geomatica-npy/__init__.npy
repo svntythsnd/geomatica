@@ -24,6 +24,7 @@ class IMultivector(_ABC) {
     @_absd; := __pos__(self) >: int | None { """Return the grade of the Multivector if it's a blade, None otherwise.""" }
     @_absd; := __format__(self, form: str) >: str {}
     @_absd; := __str__(self) >: str {}
+    @_absd; := __float__(self) >: float {}
     @_absd; := exp(self) >: 'IMultivector' {}
 }
 
@@ -432,7 +433,13 @@ class GA {
                 'e' + str(i+1).translate(_subscripts) for i -> range(mask.bit_length()) if (mask >> i) & 1)
                 for mask, value -> self.__d.items()).removeprefix('+') if self.__d else format(0.0,form))+'>';
 
-            := __str__(self) >: str :=> f'{self:g}'
+            := __str__(self) >: str :=> f'{self:g}';
+
+            := __float__(self) >: float {
+                if (l <- len(self.__d)) > 1: raise ValueError(f"Cannot extract a single float from composite Multivector (found {l} terms)");
+                if l == 0 :=> 0.0;
+                => next(iter(self.__d.values()))
+            }
         }
 
         ga.__Multivector = Multivector

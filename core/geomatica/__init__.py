@@ -69,6 +69,9 @@ class IMultivector(_ABC):
  def __str__(self) -> str:
   pass
  @_absd
+ def __float__(self) -> float:
+  pass
+ @_absd
  def exp(self) -> 'IMultivector':
   pass
  
@@ -371,6 +374,11 @@ class GA:
     return other*(self**(-1))
    def __format__(self, form: str) -> str : return '<'+(''.join(('+' if value > 0 else '') + format(value, form) + ''.join('e' + str(i+1).translate(_subscripts) for i in range(mask.bit_length()) if (mask >> i) & 1)for mask, value in self.__d.items()).removeprefix('+') if self.__d else format(0.0,form))+'>'
    def __str__(self) -> str : return f'{self:g}'
+   def __float__(self) -> float:
+    if (l := len(self.__d)) > 1: raise ValueError(f"Cannot extract a single float from composite Multivector (found {l} terms)")
+    if l == 0 : return 0.0
+    return next(iter(self.__d.values()))
+   
   ga.__Multivector = Multivector
  @_overload
  def __getitem__(self, n: int) -> IMultivector:
