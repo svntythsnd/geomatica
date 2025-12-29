@@ -75,6 +75,9 @@ class IMultivector(_ABC):
  def __int__(self) -> float:
   """Convert a scalar Multivector to an int.""" 
  @_absd
+ def __eq__(self, other: _Union[int, float, 'IMultivector']) -> bool:
+  pass
+ @_absd
  def exp(self) -> 'IMultivector':
   pass
  
@@ -385,6 +388,15 @@ class GA:
     if (l := len(self.__d)) == 0 : return 0
     elif l == 1 and 0 in self.__d : return int(self.__d[0])
     raise ValueError(f"Cannot convert to int: Multivector is not a scalar")
+   def __eq__(self, other: _Union[int, float, 'IMultivector']) -> bool:
+    from math import ldexp
+    if isinstance(other, int | float):
+     if 1+abs(ldexp(other,-self.algebra.epsilon_order)) == 1 : return len(self.__d) == 0
+     return len(self.__d) == 1 and 0 in self.__d and 1+abs(ldexp(self.__d[0]-other,-self.algebra.epsilon_order)) == 1
+    if not isinstance(other, Multivector):
+     if isinstance(other, IMultivector) : return False
+     return NotImplemented
+    return (keys := self.__d.keys()) == other._Multivector__d.keys() and all(1+abs(ldexp(self.__d[k]-other._Multivector__d[k],-self.algebra.epsilon_order)) == 1for k in keys)
    
   ga.__Multivector = Multivector
  @_overload

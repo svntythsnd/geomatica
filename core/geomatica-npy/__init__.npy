@@ -26,6 +26,7 @@ class IMultivector(_ABC) {
     @_absd; := __str__(self) >: str {}
     @_absd; := __float__(self) >: float { """Convert a scalar Multivector to a float.""" }
     @_absd; := __int__(self) >: float { """Convert a scalar Multivector to an int.""" }
+    @_absd; := __eq__(self, other: _Union[int, float, 'IMultivector']) >: bool {}
     @_absd; := exp(self) >: 'IMultivector' {}
 }
 
@@ -446,6 +447,21 @@ class GA {
                 if (l <- len(self.__d)) == 0 :=> 0;
                 elif l == 1 && 0 -> self.__d :=> int(self.__d[0]);
                 raise ValueError(f"Cannot convert to int: Multivector is not a scalar")
+            }
+
+            := __eq__(self, other: _Union[int, float, 'IMultivector']) >: bool {
+                from math import ldexp;
+                if isinstance(other, int | float) {
+                    if 1+abs(ldexp(other,-self.algebra.epsilon_order)) == 1 :=> len(self.__d) == 0;
+                    => len(self.__d) == 1 && 0 -> self.__d && 1+abs(ldexp(self.__d[0]-other,-self.algebra.epsilon_order)) == 1
+                }
+                if !isinstance(other, Multivector) {
+                    if isinstance(other, IMultivector) :=> False;
+                    => NotImplemented
+                }
+                => (keys <- self.__d.keys()) == other._Multivector__d.keys() && all(
+                    1+abs(ldexp(self.__d[k]-other._Multivector__d[k],-self.algebra.epsilon_order)) == 1
+                    for k -> keys)
             }
         }
 
