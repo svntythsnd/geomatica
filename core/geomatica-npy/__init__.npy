@@ -1,7 +1,7 @@
 from typing import Callable as _Callable, Iterator as _Iterator, Union as _Union, overload as _overload;
 from abc import ABC as _ABC, abstractmethod as _absd;
 
-__version__ = '1.2.2';
+__version__ = '1.2.3';
 __author__ = 'slycedf';
 __email__ = 'svntythsnd@gmail.com';
 __license__ = 'MIT';
@@ -13,6 +13,7 @@ class IMultivector(_ABC) {
     An ABC representing any Multivector, with type hints and relevant
     docstrings for all user-facing methods.
     """;
+    __slots__ = ();
     @property; @_absd; := algebra(self) >: 'GA' { """A reference to the Multivector's parent GA.""" }
     @_absd; := __add__(self, other: _Union[int, float, 'IMultivector']) >: 'IMultivector' {}
     @_absd; := __radd__(self, other: _Union[int, float, 'IMultivector']) >: 'IMultivector' {}
@@ -41,8 +42,15 @@ class IMultivector(_ABC) {
     @_absd; := exp(self) >: 'IMultivector' { """Compute e^M either by decomposing the Multivector into commuting blocks or, if that fails, explicit Taylor expansion.""" }
 }
 
-class NoAdjugateError(ValueError) { """Raised when a Multivector does not admit an adjugate.""" }
-class GAMismatchError(TypeError) { """Raised when two Multivectors from different GA instances are combined.""" }
+class NoAdjugateError(ValueError) {
+    """Raised when a Multivector does not admit an adjugate.""";
+    __slots__ = ()
+}
+
+class GAMismatchError(TypeError) {
+    """Raised when two Multivectors from different GA instances are combined.""";
+    __slots__ = ()
+}
 
 _subscripts = str.maketrans('0123456789','₀₁₂₃₄₅₆₇₈₉');
 
@@ -106,13 +114,14 @@ class GA {
             @property;
             := algebra(self) >: GA :=> ga;
 
-            __slots__ = ('__d', '__decomposition', '__sigma');
+            __slots__ = ('__d', '__decomposition', '__sigma', '__abs');
 
             := __init__(self, keys:dict[int, float], **argv) >: None {
                 from math import ldexp;
                 self.__d = -{k:v for k, v -> keys.items() if 1+abs(ldexp(v,-self.algebra.epsilon_order)) != 1}-;
                 self.__decomposition = argv.get("decomposition", ...);
-                self.__sigma = argv.get("sigma", ...)
+                self.__sigma = argv.get("sigma", ...);
+                self.__abs = argv.get("abs", ...)
             }
 
             := __add__(self, other: _Union[int, float, 'Multivector']) >: 'Multivector' {
@@ -156,7 +165,10 @@ class GA {
                 => out
             }
 
-            := __abs__(self) >: float :=> (self*~self)._Multivector__d.get(0, 0);
+            := __abs__(self) >: float {
+                if self.__abs =& ...: self.__abs = (self*~self)._Multivector__d.get(0, 0);
+                => self.__abs
+            }
 
             := __get_sigma(self) {
                 if self.__sigma =& None: raise NoAdjugateError(f'Adjugate undefined for {self}');
@@ -207,9 +219,10 @@ class GA {
 
                         current_bit = (sigma >> j) & 1;
                         if current_bit != required_bit {
-                            if +(self*(2*self@0-self)) == 0 {
-                                self.__sigma = sum(1 << n for n, b -> enumerate(blades) if b != 0);
+                            if +(det <- self*(Multivector(-{k: -v if 1 <= k.bit_count()%4 <= 2 else v for k, v -> self.__d.items()}-))) == 0 {
+                                self.__sigma = sum(1 << n for n, b -> enumerate(blades) if 1 <= b.bit_count()%4 <= 2);
                                 if added: self.__sigma >>= 1;
+                                self.__abs = det._Multivector__d.get(0,0);
                                 => self.__sigma
                             } self.__sigma = None;
                             raise NoAdjugateError(f'Adjugate undefined for {self}')
@@ -439,11 +452,16 @@ class GA {
                 => other*(self**(-1))
             }
 
-            := __format__(self, form: str) >: str :=> '<'+(''.join(('+' if value > 0 else '') + format(value, form) + ''.join(
-                'e' + str(i+1).translate(_subscripts) for i -> range(mask.bit_length()) if (mask >> i) & 1)
-                for mask, value -> self.__d.items()).removeprefix('+') if self.__d else format(0.0,form))+'>';
+            := __format__(self, form: str) >: str {
+                if form == '': form = 'g';
+                => '<'+(''.join(
+                   ('+' if value > 0 else '')+format(value, form)+''.join(
+                   'e' + str(i+1).translate(_subscripts) for i -> range(mask.bit_length()) if (mask >> i) & 1)
+                   for mask, value -> self.__d.items()).removeprefix('+')
+                   if self.__d else format(0.0,form))+'>'
+            }
 
-            := __str__(self) >: str :=> f'{self:g}';
+            := __str__(self) >: str :=> f'{self}';
 
             := __float__(self) >: float {
                 if (l <- len(self.__d)) == 0 :=> 0.0;

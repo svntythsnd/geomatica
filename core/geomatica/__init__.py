@@ -1,6 +1,6 @@
 from typing import Callable as _Callable, Iterator as _Iterator, Union as _Union, overload as _overload
 from abc import ABC as _ABC, abstractmethod as _absd
-__version__ = '1.2.2'
+__version__ = '1.2.3'
 __author__ = 'slycedf'
 __email__ = 'svntythsnd@gmail.com'
 __license__ = 'MIT'
@@ -11,6 +11,7 @@ class IMultivector(_ABC):
     An ABC representing any Multivector, with type hints and relevant
     docstrings for all user-facing methods.
     """
+ __slots__ = ()
  @property
  @_absd
  def algebra(self) -> 'GA':
@@ -92,9 +93,11 @@ class IMultivector(_ABC):
   """Compute e^M either by decomposing the Multivector into commuting blocks or, if that fails, explicit Taylor expansion.""" 
  
 class NoAdjugateError(ValueError):
- """Raised when a Multivector does not admit an adjugate.""" 
+ """Raised when a Multivector does not admit an adjugate."""
+ __slots__ = ()
 class GAMismatchError(TypeError):
- """Raised when two Multivectors from different GA instances are combined.""" 
+ """Raised when two Multivectors from different GA instances are combined."""
+ __slots__ = ()
 _subscripts = str.maketrans('0123456789','₀₁₂₃₄₅₆₇₈₉')
 def _merge_sort_parity(arr):
  if len(arr) <= 1 : return arr, 1
@@ -144,12 +147,13 @@ class GA:
   class Multivector(IMultivector):
    @property
    def algebra(self) -> GA : return ga
-   __slots__ = ('__d', '__decomposition', '__sigma')
+   __slots__ = ('__d', '__decomposition', '__sigma', '__abs')
    def __init__(self, keys:dict[int, float], **argv) -> None:
     from math import ldexp
     self.__d = {k:v for k, v in keys.items() if 1+abs(ldexp(v,-self.algebra.epsilon_order)) != 1}
     self.__decomposition = argv.get("decomposition", ...)
     self.__sigma = argv.get("sigma", ...)
+    self.__abs = argv.get("abs", ...)
    def __add__(self, other: _Union[int, float, 'Multivector']) -> 'Multivector':
     if isinstance(other, int | float) : return Multivector({0: self.__d.get(0, 0) + other,**{mask: value for mask, value in self.__d.items() if mask != 0}},decomposition=self.__decomposition, sigma=self.__sigma)
     if not isinstance(other, Multivector):
@@ -176,7 +180,9 @@ class GA:
     else: out = self
     for _ in range(abs(other)-1): out *= self
     return out
-   def __abs__(self) -> float : return (self*~self)._Multivector__d.get(0, 0)
+   def __abs__(self) -> float:
+    if self.__abs is ...: self.__abs = (self*~self)._Multivector__d.get(0, 0)
+    return self.__abs
    def __get_sigma(self):
     if self.__sigma is None: raise NoAdjugateError(f'Adjugate undefined for {self}')
     if self.__sigma is not ... : return self.__sigma
@@ -213,9 +219,10 @@ class GA:
        continue
       current_bit = (sigma >> j) & 1
       if current_bit != required_bit:
-       if +(self*(2*self@0-self)) == 0:
-        self.__sigma = sum(1 << n for n, b in enumerate(blades) if b != 0)
+       if +(det := self*(Multivector({k: -v if 1 <= k.bit_count()%4 <= 2 else v for k, v in self.__d.items()}))) == 0:
+        self.__sigma = sum(1 << n for n, b in enumerate(blades) if 1 <= b.bit_count()%4 <= 2)
         if added: self.__sigma >>= 1
+        self.__abs = det._Multivector__d.get(0,0)
         return self.__sigma
        self.__sigma = None
        raise NoAdjugateError(f'Adjugate undefined for {self}')
@@ -386,8 +393,10 @@ class GA:
    def __rtruediv__(self, other: int | float) -> 'Multivector':
     if not isinstance(other, int | float) : return NotImplemented
     return other*(self**(-1))
-   def __format__(self, form: str) -> str : return '<'+(''.join(('+' if value > 0 else '') + format(value, form) + ''.join('e' + str(i+1).translate(_subscripts) for i in range(mask.bit_length()) if (mask >> i) & 1)for mask, value in self.__d.items()).removeprefix('+') if self.__d else format(0.0,form))+'>'
-   def __str__(self) -> str : return f'{self:g}'
+   def __format__(self, form: str) -> str:
+    if form == '': form = 'g'
+    return '<'+(''.join(('+' if value > 0 else '')+format(value, form)+''.join('e' + str(i+1).translate(_subscripts) for i in range(mask.bit_length()) if (mask >> i) & 1)for mask, value in self.__d.items()).removeprefix('+')if self.__d else format(0.0,form))+'>'
+   def __str__(self) -> str : return f'{self}'
    def __float__(self) -> float:
     if (l := len(self.__d)) == 0 : return 0.0
     elif l == 1 and 0 in self.__d : return self.__d[0]
