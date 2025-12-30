@@ -1,6 +1,6 @@
 from typing import Callable as _Callable, Iterator as _Iterator, Union as _Union, overload as _overload
 from abc import ABC as _ABC, abstractmethod as _absd
-__version__ = '1.2.0'
+__version__ = '1.2.1'
 __author__ = 'slycedf'
 __email__ = 'svntythsnd@gmail.com'
 __license__ = 'MIT'
@@ -9,7 +9,7 @@ __url__ = 'https://github.com/svntythsnd/geomatica'
 class IMultivector(_ABC):
  """
     An ABC representing any Multivector, with type hints and relevant
-    docstrings for all user-intended methods.
+    docstrings for all user-facing methods.
     """
  @property
  @_absd
@@ -35,10 +35,10 @@ class IMultivector(_ABC):
   """Return the adjugate of the Multivector.""" 
  @_absd
  def __mul__(self, other: _Union[int, float, 'IMultivector']) -> 'IMultivector':
-  """Compute e^M either by decomposing the Multivector into commuting blocks or, if that fails, explicit Taylor expansion.""" 
+  """Return the geometric product of two Multivectors.""" 
  @_absd
  def __rmul__(self, other: int | float) -> 'IMultivector':
-  pass
+  """Return the geometric product of two Multivectors.""" 
  @_absd
  def __pow__(self, other: int | float) -> 'IMultivector':
   pass
@@ -89,7 +89,7 @@ class IMultivector(_ABC):
   pass
  @_absd
  def exp(self) -> 'IMultivector':
-  pass
+  """Compute e^M either by decomposing the Multivector into commuting blocks or, if that fails, explicit Taylor expansion.""" 
  
 class NoAdjugateError(ValueError):
  """Raised when a Multivector does not admit an adjugate.""" 
