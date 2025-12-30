@@ -1,6 +1,6 @@
 from typing import Callable as _Callable, Iterator as _Iterator, Union as _Union, overload as _overload
 from abc import ABC as _ABC, abstractmethod as _absd
-__version__ = '1.2.1'
+__version__ = '1.2.2'
 __author__ = 'slycedf'
 __email__ = 'svntythsnd@gmail.com'
 __license__ = 'MIT'
@@ -137,7 +137,7 @@ class GA:
                        Defaults to 1 for all.
             epsilon_order: integer offset for machine epsilon comparisons.
                        The effective bound for treating numbers as zero is
-                       2^-epsilon_order times the machine epsilon. Defaults to 0.
+                       2^epsilon_order times the machine epsilon. Defaults to 0.
         """
   ga.signature = signature
   ga.epsilon_order = epsilon_order
