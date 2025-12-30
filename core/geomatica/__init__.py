@@ -1,16 +1,20 @@
 from typing import Callable as _Callable, Iterator as _Iterator, Union as _Union, overload as _overload
 from abc import ABC as _ABC, abstractmethod as _absd
-__version__ = '1.1.5'
+__version__ = '1.2.0'
 __author__ = 'slycedf'
 __email__ = 'svntythsnd@gmail.com'
 __license__ = 'MIT'
 __description__ = 'Geometric Algebra in Python'
 __url__ = 'https://github.com/svntythsnd/geomatica'
 class IMultivector(_ABC):
+ """
+    An ABC representing any Multivector, with type hints and relevant
+    docstrings for all user-intended methods.
+    """
  @property
  @_absd
  def algebra(self) -> 'GA':
-  """a reference to the Multivector's parent GA.""" 
+  """A reference to the Multivector's parent GA.""" 
  @_absd
  def __add__(self, other: _Union[int, float, 'IMultivector']) -> 'IMultivector':
   pass
