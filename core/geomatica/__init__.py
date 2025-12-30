@@ -1,5 +1,11 @@
 from typing import Callable as _Callable, Iterator as _Iterator, Union as _Union, overload as _overload
 from abc import ABC as _ABC, abstractmethod as _absd
+__version__ = '1.1.2'
+__author__ = 'slycedf'
+__email__ = 'svntythsnd@gmail.com'
+__license__ = 'MIT'
+__description__ = 'Geometric Algebra in Python'
+__url__ = 'https://github.com/svntythsnd/geomatica'
 class IMultivector(_ABC):
  @property
  @_absd
@@ -61,7 +67,7 @@ class IMultivector(_ABC):
   """Return the wedge product of two Multivectors.""" 
  @_absd
  def __pos__(self) -> int | None:
-  """Return the grade of the Multivector if it's a blade, None otherwise.""" 
+  """Return the grade of the Multivector if it's homogenous, None otherwise.""" 
  @_absd
  def __format__(self, form: str) -> str:
   pass

@@ -1,6 +1,13 @@
 from typing import Callable as _Callable, Iterator as _Iterator, Union as _Union, overload as _overload;
 from abc import ABC as _ABC, abstractmethod as _absd;
 
+__version__ = '1.1.2';
+__author__ = 'slycedf';
+__email__ = 'svntythsnd@gmail.com';
+__license__ = 'MIT';
+__description__ = 'Geometric Algebra in Python';
+__url__ = 'https://github.com/svntythsnd/geomatica';
+
 class IMultivector(_ABC) {
     @property; @_absd; := algebra(self) >: 'GA' { """a reference to the Multivector's parent GA.""" }
     @_absd; := __add__(self, other: _Union[int, float, 'IMultivector']) >: 'IMultivector' {}
@@ -21,7 +28,7 @@ class IMultivector(_ABC) {
     @_absd; := __ror__(self, other: int | float) >: 'IMultivector' { """Return the Perwass dot product of two Multivectors.""" }
     @_absd; := __xor__(self, other: _Union[int, float, 'IMultivector']) >: 'IMultivector' { """Return the wedge product of two Multivectors.""" }
     @_absd; := __rxor__(self, other: int | float) >: 'IMultivector' { """Return the wedge product of two Multivectors.""" }
-    @_absd; := __pos__(self) >: int | None { """Return the grade of the Multivector if it's a blade, None otherwise.""" }
+    @_absd; := __pos__(self) >: int | None { """Return the grade of the Multivector if it's homogenous, None otherwise.""" }
     @_absd; := __format__(self, form: str) >: str {}
     @_absd; := __str__(self) >: str {}
     @_absd; := __float__(self) >: float { """Convert a scalar Multivector to a float.""" }
