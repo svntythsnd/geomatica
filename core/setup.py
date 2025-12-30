@@ -26,8 +26,6 @@ with open(parse('..\README.md'), 'r') as f, open(parse('README.md'), 'w') as fn:
     readme = f.read()
     fn.write(readme)
 
-    print(test)
-
     setup(
         name=name,
         packages=find_packages(include=['geomatica']),

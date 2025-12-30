@@ -1,7 +1,7 @@
 from typing import Callable as _Callable, Iterator as _Iterator, Union as _Union, overload as _overload;
 from abc import ABC as _ABC, abstractmethod as _absd;
 
-__version__ = '1.1.2';
+__version__ = '1.1.3';
 __author__ = 'slycedf';
 __email__ = 'svntythsnd@gmail.com';
 __license__ = 'MIT';
@@ -485,7 +485,7 @@ class GA {
         For slices, return a generator over the slice.
         """;
         if isinstance(n, int) :=> self.__Multivector(-{(1<<(n-1) if n > 0 else 0): 1.0}- if n >= 0 else -{}-);
-        if !isinstance(n, slice) :=> NotImplemented;
+        if !isinstance(n, slice): raise TypeError(f"Cannot index a GA with type '{type(n).__name__}'");
         step = n.step || 1;
         start = n.start || 0;
         stop = n.stop;
@@ -498,13 +498,16 @@ class GA {
         } => generator()
     }
 
-    := __call__(self, multivector: IMultivector) >: IMultivector {
+    := __call__(self, other: int | float | IMultivector) >: IMultivector {
         """
-        Convert any Multivector to a Multivector of this GA.
+        Convert any Multivector, float or int into a Multivector of this GA.
         """;
-        => self.__Multivector(multivector._Multivector__d,
-                              decomposition=multivector._Multivector__decomposition,
-                              sigma=multivector._Multivector__sigma)
+        from math import ldexp;
+        if isinstance(other, int | float) :=> self.__Multivector(-{}-) if 1+abs(ldexp(other, -self.epsilon_order)) == 1 else self.__Multivector(-{0: float(other)}-);
+        if !isinstance(other, IMultivector): raise TypeError(f"Cannot convert type '{type(other).__name__}' into a Multivector");
+        => self.__Multivector(other._Multivector__d,
+                              decomposition=other._Multivector__decomposition,
+                              sigma=other._Multivector__sigma)
     }
 
     := __str__(self) >: str :=> f"GA<signature={getattr(self.signature, '__name__', repr(self.signature))}, epsilon_order={self.epsilon_order}>"
