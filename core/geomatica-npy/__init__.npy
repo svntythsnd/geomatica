@@ -1,7 +1,7 @@
 from typing import Callable as _Callable, Iterator as _Iterator, Union as _Union, overload as _overload;
 from abc import ABC as _ABC, abstractmethod as _absd;
 
-__version__ = '1.1.4';
+__version__ = '1.1.5';
 __author__ = 'slycedf';
 __email__ = 'svntythsnd@gmail.com';
 __license__ = 'MIT';
@@ -136,10 +136,7 @@ class GA {
                             decomposition=self.__decomposition)
             }
 
-            := __rmul__(self, other: int | float) >: 'Multivector' {
-                if isinstance(other, int | float) :=> self*other;
-                => NotImplemented
-            }
+            := __rmul__(self, other: int | float) >: 'Multivector' :=> self*other;
 
             := __pow__(self, other: int | float) >: 'Multivector' {
                 if !isinstance(other, int | float) :=> NotImplemented;
@@ -282,7 +279,7 @@ class GA {
             }
 
             := __xor__(self, other: _Union[int, float, 'Multivector']) >: 'Multivector' {
-                if isinstance(other, int | float) :=> other*self if len(self.__d) == 1 && 0 -> self.__d else self.algebra[-1];
+                if isinstance(other, int | float) :=> self*other;
                 if !isinstance(other, Multivector) {
                     if isinstance(other, IMultivector): raise GAMismatchError("Cannot combine Multivectors from different GA instances");
                     => NotImplemented
@@ -299,7 +296,7 @@ class GA {
 
             := __rxor__(self, other: int | float) >: 'Multivector' {
                 if !isinstance(other, int | float) :=> NotImplemented;
-                => other*self if len(self.__d) == 1 && 0 -> self.__d else self.algebra[-1]
+                => self*other
             }
 
             := __mul__(self, other: _Union[int, float, 'Multivector']) >: 'Multivector' {
