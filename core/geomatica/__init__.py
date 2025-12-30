@@ -1,6 +1,6 @@
 from typing import Callable as _Callable, Iterator as _Iterator, Union as _Union, overload as _overload
 from abc import ABC as _ABC, abstractmethod as _absd
-__version__ = '1.1.3'
+__version__ = '1.1.4'
 __author__ = 'slycedf'
 __email__ = 'svntythsnd@gmail.com'
 __license__ = 'MIT'
@@ -273,7 +273,7 @@ class GA:
     if not isinstance(other, int | float) : return NotImplemented
     return self*other
    def __xor__(self, other: _Union[int, float, 'Multivector']) -> 'Multivector':
-    if isinstance(other, int | float) : return self.algebra[-1]
+    if isinstance(other, int | float) : return other*self if len(self.__d) == 1 and 0 in self.__d else self.algebra[-1]
     if not isinstance(other, Multivector):
      if isinstance(other, IMultivector): raise GAMismatchError("Cannot combine Multivectors from different GA instances")
      return NotImplemented
@@ -287,7 +287,7 @@ class GA:
     return Multivector(dict(sorted(new.items())))
    def __rxor__(self, other: int | float) -> 'Multivector':
     if not isinstance(other, int | float) : return NotImplemented
-    return self.algebra[-1]
+    return other*self if len(self.__d) == 1 and 0 in self.__d else self.algebra[-1]
    def __mul__(self, other: _Union[int, float, 'Multivector']) -> 'Multivector':
     from math import ldexp
     if isinstance(other, int | float) : return Multivector({mask: other*val for mask, val in self.__d.items()},decomposition=self.__decomposition, sigma=self.__sigma)if 1+abs(ldexp(other, -self.algebra.epsilon_order)) != 1else Multivector({})
