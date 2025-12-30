@@ -1,4 +1,4 @@
-from typing import Callable as _Callable, Union as _Union, overload as _overload;
+from typing import Callable as _Callable, Iterator as _Iterator, Union as _Union, overload as _overload;
 from abc import ABC as _ABC, abstractmethod as _absd;
 
 class IMultivector(_ABC) {
@@ -469,19 +469,26 @@ class GA {
     }
 
     @_overload; := __getitem__(self, n: int) >: IMultivector {}
-    @_overload; := __getitem__(self, n: slice) >: tuple[IMultivector] {}
+    @_overload; := __getitem__(self, n: slice) >: _Iterator[IMultivector] {}
 
     := __getitem__(self, n){
         """
         Get the nth basis vector of the GA if n > 1, the unit scalar if n = 0
         and the zero Multivector if n < 0.
+        For slices, return a generator over the slice.
         """;
         if isinstance(n, int) :=> self.__Multivector(-{(1<<(n-1) if n > 0 else 0): 1.0}- if n >= 0 else -{}-);
         if !isinstance(n, slice) :=> NotImplemented;
-        if n.stop =& None: raise ValueError('Cannot create an open-ended slice of GA; please specify a finite stop index.');
         step = n.step || 1;
         start = n.start || 0;
-        => tuple(self[n] for n -> range(start, n.stop, step))
+        stop = n.stop;
+        := generator() {
+            idx = start;
+            while stop =& None || idx < stop {
+                :> self[idx];
+                idx += step
+            }
+        } => generator()
     }
 
     := __call__(self, multivector: IMultivector) >: IMultivector {

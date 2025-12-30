@@ -1,4 +1,4 @@
-from typing import Callable as _Callable, Union as _Union, overload as _overload
+from typing import Callable as _Callable, Iterator as _Iterator, Union as _Union, overload as _overload
 from abc import ABC as _ABC, abstractmethod as _absd
 class IMultivector(_ABC):
  @property
@@ -403,19 +403,26 @@ class GA:
  def __getitem__(self, n: int) -> IMultivector:
   pass
  @_overload
- def __getitem__(self, n: slice) -> tuple[IMultivector]:
+ def __getitem__(self, n: slice) -> _Iterator[IMultivector]:
   pass
  def __getitem__(self, n):
   """
         Get the nth basis vector of the GA if n > 1, the unit scalar if n = 0
         and the zero Multivector if n < 0.
+        For slices, return a generator over the slice.
         """
   if isinstance(n, int) : return self.__Multivector({(1<<(n-1) if n > 0 else 0): 1.0} if n >= 0 else {})
   if not isinstance(n, slice) : return NotImplemented
-  if n.stop is None: raise ValueError('Cannot create an open-ended slice of GA; please specify a finite stop index.')
   step = n.step or 1
   start = n.start or 0
-  return tuple(self[n] for n in range(start, n.stop, step))
+  stop = n.stop
+  def generator():
+   idx = start
+   while stop is None or idx < stop:
+    yield self[idx]
+    idx += step
+   
+  return generator()
  def __call__(self, multivector: IMultivector) -> IMultivector:
   """
         Convert any Multivector to a Multivector of this GA.
