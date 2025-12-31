@@ -1,6 +1,8 @@
 from typing import Callable as _Callable, Iterator as _Iterator, Union as _Union, overload as _overload
 from abc import ABC as _ABC, abstractmethod as _absd
-__version__ = '1.2.3'
+from types import UnionType as _UnionType
+from dataclasses import dataclass as _dataclass
+__version__ = '1.3.0'
 __author__ = 'slycedf'
 __email__ = 'svntythsnd@gmail.com'
 __license__ = 'MIT'
@@ -89,6 +91,12 @@ class IMultivector(_ABC):
  def __eq__(self, other: _Union[int, float, 'IMultivector']) -> bool:
   pass
  @_absd
+ def __call__(self, other: _Callable[[int], int|float]) -> 'IMultivector':
+  """Scale each grade of the Multivector with the provided Callable.""" 
+ @_absd
+ def __hash__(self) -> int:
+  pass
+ @_absd
  def exp(self) -> 'IMultivector':
   """Compute e^M either by decomposing the Multivector into commuting blocks or, if that fails, explicit Taylor expansion.""" 
  
@@ -118,6 +126,16 @@ def _merge_sort_parity(arr):
  merged.extend(left[i:])
  merged.extend(right[j:])
  return merged, parity
+@_dataclass(frozen=True, slots=True)
+class _RuntimeCallableWrapper:
+ callable: _Callable
+ return_type: type|_UnionType
+ name: str
+ type_name: str
+ def __call__(self, *args):
+  if not isinstance(out := self.callable(*args), self.return_type):raise TypeError(f"{self.name} must be a {self.type_name}, but got {type(out).__name__} for input {', '.join(str(x) for x in args)}")
+  return out
+ 
 class GA:
  """
     A container representing a Geometric Algebra.
@@ -129,9 +147,20 @@ class GA:
                        2^epsilon_order times the machine epsilon.
     """
  __slots__ = ('signature', 'epsilon_order', '__Multivector')
- signature: _Callable[[int], float]
+ signature: _Callable[[int], int|float]
  epsilon_order: int
- def __init__(ga, *, signature:_Callable[[int], float]= lambda x:1.0, epsilon_order:int=0):
+ def __setattr__(self, name, value):
+  match name:
+   case 'epsilon_order' if not isinstance(value, int): raise TypeError(f"GA.{name} must be an int, but got {type(value).__name__}")
+   case 'signature':
+    if not isinstance(value, _Callable): raise TypeError(f"GA.{name} must be a Callable[[int], int|float], but got {type(value).__name__}")
+    from inspect import signature
+    if (l := len(signature(value).parameters)) != 1: raise TypeError(f"GA.{name} must be a Callable[[int], int|float], but got {l} arguments")
+    value = _RuntimeCallableWrapper(value,int|float,f'GA.{name}','Callable[[int], int|float]')
+    
+   
+  super().__setattr__(name, value)
+ def __init__(ga, *, signature:_Callable[[int], int|float]= lambda x:1.0, epsilon_order:int=0):
   """
         Create a Geometric Algebra.
 
@@ -273,7 +302,8 @@ class GA:
     new = {}
     for mask1, val1 in self.__d.items():
      for mask2, val2 in other._Multivector__d.items():
-      if (mask1^mask2).bit_count() != abs(mask1.bit_count() - mask2.bit_count()): continue
+      overlap = mask1&mask2
+      if overlap != mask1 and overlap != mask2: continue
       mask, basisprod = self.__mulbases(mask1, mask2)
       new[mask] = new.get(mask, 0) + val1*val2*basisprod
      
@@ -289,7 +319,7 @@ class GA:
     new = {}
     for mask1, val1 in self.__d.items():
      for mask2, val2 in other._Multivector__d.items():
-      if (mask1^mask2).bit_count() != mask1.bit_count() + mask2.bit_count(): continue
+      if (mask1&mask2) != 0: continue
       mask, basisprod = self.__mulbases(mask1, mask2)
       new[mask] = new.get(mask, 0) + val1*val2*basisprod
      
@@ -414,7 +444,18 @@ class GA:
      if isinstance(other, IMultivector) : return False
      return NotImplemented
     return (keys := self.__d.keys()) == other._Multivector__d.keys() and all(1+abs(ldexp(self.__d[k]-other._Multivector__d[k],-self.algebra.epsilon_order)) == 1for k in keys)
-   
+   def __call__(self, factors:_Callable[[int],int|float]):
+    if not isinstance(factors, _Callable): raise TypeError(f"Grade-scale factors must be a Callable[[int], int|float], but got {type(factors).__name__}")
+    from inspect import signature
+    if (l := len(signature(factors).parameters)) != 1: raise TypeError(f"Grade-scale factors must be a Callable[[int], int|float], but got {l} arguments")
+    from math import ldexp
+    accumulator = {}
+    for k, v in self.__d.items():
+     grade = k.bit_count()
+     if not isinstance((factor := factors(grade)), int | float):raise TypeError(f"Grade-scale factors must be a Callable[[int], int|float], but got {type(factor).__name__} for index {grade}")
+     if 1+abs(ldexp(V := v*factor, self.algebra.epsilon_order)) != 0: accumulator[k] = V
+    return Multivector(accumulator, decomposition=self.__decomposition)
+   def __hash__(self) : return hash(tuple(self.__d.items())) ^ hash(Multivector)
   ga.__Multivector = Multivector
  @_overload
  def __getitem__(self, n: int) -> IMultivector:
@@ -429,7 +470,7 @@ class GA:
         For slices, return a generator over the slice.
         """
   if isinstance(n, int) : return self.__Multivector({(1<<(n-1) if n > 0 else 0): 1.0} if n >= 0 else {})
-  if not isinstance(n, slice): raise TypeError(f"Cannot index a GA with type '{type(n).__name__}'")
+  if not isinstance(n, slice): raise TypeError(f"GA indices must be integers or slices, not {type(n).__name__}")
   step = n.step or 1
   start = n.start or 0
   stop = n.stop
