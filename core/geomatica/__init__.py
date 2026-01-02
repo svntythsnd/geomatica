@@ -2,7 +2,7 @@ from typing import Callable as _Callable, Iterator as _Iterator, Union as _Union
 from abc import ABC as _ABC, abstractmethod as _absd
 from types import UnionType as _UnionType
 from dataclasses import dataclass as _dataclass
-__version__ = '1.3.1'
+__version__ = '1.3.2'
 __author__ = 'slycedf'
 __email__ = 'svntythsnd@gmail.com'
 __license__ = 'MIT'
@@ -199,10 +199,10 @@ class GA:
    def __rmul__(self, other: int | float) -> 'Multivector' : return self*other
    def __pow__(self, other: int | float) -> 'Multivector':
     if not isinstance(other, int | float) : return NotImplemented
-    from math import ldexp
+    from math import ldexp, copysign
     if len(self.__d) == 0:
-     if (E := 1+abs(ldexp(other, -self.algebra.epsilon_order))) > 1 : return self
-     if E == 1 : return self.algebra[0]
+     if 1+abs(ldexp(other, -self.algebra.epsilon_order)) == 1 : return self.algebra[0]
+     if copysign(1, other) == 1 : return self
      raise ZeroDivisionError(f"Cannot invert {self}: determinant is zero")
     if len(self.__d) == 1 and 0 in self.__d : return self.algebra(self.__d[0]**other)
     if 1 + abs(ldexp(other % 1, -self.algebra.epsilon_order)) != 1: raise ValueError(f'Multivector exponent must be an integer, but got {other}')
