@@ -3,7 +3,7 @@ from abc import ABC as _ABC, abstractmethod as _absd
 from types import UnionType as _UnionType
 from dataclasses import dataclass as _dataclass
 from warnings import filterwarnings as _filterwarnings
-__version__ = '1.3.3'
+__version__ = '1.3.4'
 __author__ = 'slycedf'
 __email__ = 'svntythsnd@gmail.com'
 __license__ = 'MIT'
@@ -109,25 +109,6 @@ class GAMismatchError(TypeError):
  """Raised when two Multivectors from different GA instances are combined."""
  __slots__ = ()
 _subscripts = str.maketrans('0123456789','₀₁₂₃₄₅₆₇₈₉')
-def _merge_sort_parity(arr):
- if len(arr) <= 1 : return arr, 1
- mid = len(arr) // 2
- left, p_left = _merge_sort_parity(arr[:mid])
- right, p_right = _merge_sort_parity(arr[mid:])
- merged = []
- parity = p_left * p_right
- i = j = 0
- while i < len(left) and j < len(right):
-  if left[i] <= right[j]:
-   merged.append(left[i])
-   i += 1
-   continue
-  merged.append(right[j])
-  j += 1
-  if (len(left) - i) & 1: parity = -parity
- merged.extend(left[i:])
- merged.extend(right[j:])
- return merged, parity
 @_dataclass(frozen=True, slots=True)
 class _RuntimeCallableWrapper:
  callable: _Callable
@@ -270,37 +251,20 @@ class GA:
     import math
     return (math.log(other)*self).exp()
    def __mulbases(self, mask1, mask2):
-    if mask1 == 0 : return mask2, 1
-    if mask2 == 0 : return mask1, 1
-    if mask1 == mask2:
-     init = -1 if mask1.bit_count() % 4 >= 2 else 1
-     for n in range(mask1.bit_length()):
-      if (mask1 >> n) & 1: init *= self.algebra.signature(n+1)
-     return 0, init
+    left, right = [i for i in range(mask1.bit_length()) if (mask1 >> i) & 1], [i for i in range(mask2.bit_length()) if (mask2 >> i) & 1]
+    i = j = 0
+    parity = 0
+    while i < len(left) and j < len(right):
+     if left[i] > right[j]:
+      parity ^= (len(left) - i) & 1
+      j += 1
+      continue
+     i += 1
     val = 1
-    bases = [i for i in range(mask1.bit_length()) if (mask1 >> i) & 1] + [i for i in range(mask2.bit_length()) if (mask2 >> i) & 1]
-    seen = set()
-    for basis in tuple(bases):
-     if basis in seen: continue
-     seen.add(basis)
-     diff = 0
-     keep = False
-     for n, factor in enumerate(reversed(tuple(bases))):
-      if factor != basis: continue
-      keep = not keep
-      if keep:
-       diff = n
-       continue
-       
-      if n % 2 == diff % 2: val *= -1
-      bases.pop(~diff)
-      bases.pop(~n+1 if n>diff else ~n)
-      val *= self.algebra.signature(basis+1)
-      
-     
-    bases, parity = _merge_sort_parity(bases)
-    bases = sum(1 << i for i in bases)
-    return bases, val*parity
+    sq = mask1 & mask2
+    for i in range(sq.bit_length()):
+     if (mask1 >> i) & 1: val *= self.algebra.signature(i+1)
+    return mask1^mask2, -val if parity else val
    def __or__(self, other: _Union[int, float, 'Multivector']) -> 'Multivector':
     if isinstance(other, int | float) : return self*other
     if not isinstance(other, Multivector):
