@@ -2,12 +2,14 @@ from typing import Callable as _Callable, Iterator as _Iterator, Union as _Union
 from abc import ABC as _ABC, abstractmethod as _absd
 from types import UnionType as _UnionType
 from dataclasses import dataclass as _dataclass
-__version__ = '1.3.2'
+from warnings import filterwarnings as _filterwarnings
+__version__ = '1.3.3'
 __author__ = 'slycedf'
 __email__ = 'svntythsnd@gmail.com'
 __license__ = 'MIT'
 __description__ = 'Geometric Algebra in Python'
 __url__ = 'https://github.com/svntythsnd/geomatica'
+_filterwarnings("ignore", category=SyntaxWarning)
 class IMultivector(_ABC):
  """
     An ABC representing any Multivector, with type hints and relevant
