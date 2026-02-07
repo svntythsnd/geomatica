@@ -3,7 +3,7 @@ from abc import ABC as _ABC, abstractmethod as _absd
 from types import UnionType as _UnionType
 from dataclasses import dataclass as _dataclass
 from warnings import filterwarnings as _filterwarnings
-__version__ = '1.3.4'
+__version__ = '1.3.5'
 __author__ = 'slycedf'
 __email__ = 'svntythsnd@gmail.com'
 __license__ = 'MIT'
@@ -251,15 +251,30 @@ class GA:
     import math
     return (math.log(other)*self).exp()
    def __mulbases(self, mask1, mask2):
-    left, right = [i for i in range(mask1.bit_length()) if (mask1 >> i) & 1], [i for i in range(mask2.bit_length()) if (mask2 >> i) & 1]
-    i = j = 0
+    left, right = mask1, mask2
+    i = 0
+    n = 0
+    m = 0
+    l = mask1.bit_count() & 1
     parity = 0
-    while i < len(left) and j < len(right):
-     if left[i] > right[j]:
-      parity ^= (len(left) - i) & 1
-      j += 1
+    while left and right:
+     if not (left & 1):
+      left >>= 1
+      n+=1
       continue
-     i += 1
+     if not (right & 1):
+      right >>= 1
+      m+=1
+      continue
+     if n > m:
+      parity ^= l ^ i
+      right >>= 1
+      m+=1
+      continue
+     left >>= 1
+     n+=1
+     i ^= 1
+     continue
     val = 1
     sq = mask1 & mask2
     for i in range(sq.bit_length()):
