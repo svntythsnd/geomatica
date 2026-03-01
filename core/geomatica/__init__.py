@@ -3,7 +3,7 @@ from abc import ABC as _ABC, abstractmethod as _absd
 from types import UnionType as _UnionType
 from dataclasses import dataclass as _dataclass
 from warnings import filterwarnings as _filterwarnings
-__version__ = '1.3.5'
+__version__ = '1.3.6'
 __author__ = 'slycedf'
 __email__ = 'svntythsnd@gmail.com'
 __license__ = 'MIT'
@@ -278,7 +278,7 @@ class GA:
     val = 1
     sq = mask1 & mask2
     for i in range(sq.bit_length()):
-     if (mask1 >> i) & 1: val *= self.algebra.signature(i+1)
+     if (sq >> i) & 1: val *= self.algebra.signature(i+1)
     return mask1^mask2, -val if parity else val
    def __or__(self, other: _Union[int, float, 'Multivector']) -> 'Multivector':
     if isinstance(other, int | float) : return self*other
