@@ -3,7 +3,7 @@ from abc import ABC as _ABC, abstractmethod as _absd
 from types import UnionType as _UnionType
 from dataclasses import dataclass as _dataclass
 from warnings import filterwarnings as _filterwarnings
-__version__ = '1.3.6'
+__version__ = '1.3.7'
 __author__ = 'slycedf'
 __email__ = 'svntythsnd@gmail.com'
 __license__ = 'MIT'
@@ -52,7 +52,7 @@ class IMultivector(_ABC):
   """Exponentiate the Multivector by applying e^(M ln b).""" 
  @_absd
  def __abs__(self) -> float:
-  """Return the determinant of the Multivector.""" 
+  """Return the norm of the Multivector.""" 
  @_absd
  def __matmul__(self, grade: int) -> 'IMultivector':
   """Extract a specific grade of the Multivector.""" 
@@ -101,6 +101,9 @@ class IMultivector(_ABC):
  @_absd
  def exp(self) -> 'IMultivector':
   """Compute e^M either by decomposing the Multivector into commuting blocks or, if that fails, explicit Taylor expansion.""" 
+ @_absd
+ def det(self) -> float:
+  """Return the determinant of the Multivector.""" 
  
 class NoAdjugateError(ValueError):
  """Raised when a Multivector does not admit an adjugate."""
@@ -192,14 +195,15 @@ class GA:
     other = int(round(other))
     if other == 0 : return self.algebra[0]
     if other < 0:
-     if det := abs(self): out = (~self)/det
+     if det := self.det(): out = (~self)/det
      else: raise ZeroDivisionError(f"Cannot invert {self}: determinant is zero")
     else: out = self
     for _ in range(abs(other)-1): out *= self
     return out
-   def __abs__(self) -> float:
+   def det(self) -> float:
     if self.__abs is ...: self.__abs = (self*~self)._Multivector__d.get(0, 0)
     return self.__abs
+   def __abs__(self) -> float : return abs(self.det())**0.5
    def __get_sigma(self):
     if self.__sigma is None: raise NoAdjugateError(f'Adjugate undefined for {self}')
     if self.__sigma is not ... : return self.__sigma
@@ -236,7 +240,7 @@ class GA:
        continue
       current_bit = (sigma >> j) & 1
       if current_bit != required_bit:
-       if +(det := self*(Multivector({k: -v if 1 <= k.bit_count()%4 <= 2 else v for k, v in self.__d.items()}))) == 0:
+       if not +(det := self*(Multivector({k: -v if 1 <= k.bit_count()%4 <= 2 else v for k, v in self.__d.items()}))):
         self.__sigma = sum(1 << n for n, b in enumerate(blades) if 1 <= b.bit_count()%4 <= 2)
         if added: self.__sigma >>= 1
         self.__abs = det._Multivector__d.get(0,0)
