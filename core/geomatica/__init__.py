@@ -3,7 +3,7 @@ from abc import ABC as _ABC, abstractmethod as _absd
 from types import UnionType as _UnionType
 from dataclasses import dataclass as _dataclass
 from warnings import filterwarnings as _filterwarnings
-__version__ = '1.3.7'
+__version__ = '1.3.8'
 __author__ = 'slycedf'
 __email__ = 'svntythsnd@gmail.com'
 __license__ = 'MIT'
@@ -146,7 +146,7 @@ class GA:
     
    
   super().__setattr__(name, value)
- def __init__(ga, *, signature:_Callable[[int], int|float]= lambda x:1.0, epsilon_order:int=0):
+ def __init__(ga, *, signature:_Callable[[int], int|float]= lambda x:1., epsilon_order:int=0):
   """
         Create a Geometric Algebra.
 
@@ -170,7 +170,7 @@ class GA:
     self.__sigma = argv.get("sigma", ...)
     self.__abs = argv.get("abs", ...)
    def __add__(self, other: _Union[int, float, 'Multivector']) -> 'Multivector':
-    if isinstance(other, int | float) : return Multivector({0: self.__d.get(0, 0) + other,**{mask: value for mask, value in self.__d.items() if mask != 0}},decomposition=self.__decomposition, sigma=self.__sigma)
+    if isinstance(other, int | float) : return Multivector({0: self.__d.get(0, 0.) + other,**{mask: value for mask, value in self.__d.items() if mask != 0}},decomposition=self.__decomposition, sigma=self.__sigma)
     if not isinstance(other, Multivector):
      if isinstance(other, IMultivector): raise GAMismatchError("Cannot combine Multivectors from different GA instances")
      return NotImplemented
@@ -201,7 +201,7 @@ class GA:
     for _ in range(abs(other)-1): out *= self
     return out
    def det(self) -> float:
-    if self.__abs is ...: self.__abs = (self*~self)._Multivector__d.get(0, 0)
+    if self.__abs is ...: self.__abs = (self*~self)._Multivector__d.get(0, 0.)
     return self.__abs
    def __abs__(self) -> float : return abs(self.det())**0.5
    def __get_sigma(self):
@@ -243,7 +243,7 @@ class GA:
        if not +(det := self*(Multivector({k: -v if 1 <= k.bit_count()%4 <= 2 else v for k, v in self.__d.items()}))):
         self.__sigma = sum(1 << n for n, b in enumerate(blades) if 1 <= b.bit_count()%4 <= 2)
         if added: self.__sigma >>= 1
-        self.__abs = det._Multivector__d.get(0,0)
+        self.__abs = det._Multivector__d.get(0,0.)
         return self.__sigma
        self.__sigma = None
        raise NoAdjugateError(f'Adjugate undefined for {self}')
@@ -383,7 +383,7 @@ class GA:
     if d is NotImplemented:
      if (s := (self|self).__d.get(0,0)) != 0: value = math.sqrt(abs(s))
      return self.algebra[0]*math.cosh(value) + self*math.sinh(value)/value if s > 0else self.algebra[0] + self if s == 0else self.algebra[0]*math.cos(value) + self*math.sin(value)/value
-    prod = 1.0
+    prod = 1.
     for block in d:
      if block == [0]:
       prod *= math.exp(self.__d[0])
@@ -415,10 +415,10 @@ class GA:
     return other*(self**(-1))
    def __format__(self, form: str) -> str:
     if form == '': form = 'g'
-    return '<'+(''.join(('+' if value > 0 else '')+format(value, form)+''.join('e' + str(i+1).translate(_subscripts) for i in range(mask.bit_length()) if (mask >> i) & 1)for mask, value in self.__d.items()).removeprefix('+')if self.__d else format(0.0,form))+'>'
+    return '<'+(''.join(('+' if value > 0 else '')+format(value, form)+''.join('e' + str(i+1).translate(_subscripts) for i in range(mask.bit_length()) if (mask >> i) & 1)for mask, value in self.__d.items()).removeprefix('+')if self.__d else format(0.,form))+'>'
    def __str__(self) -> str : return f'{self}'
    def __float__(self) -> float:
-    if (l := len(self.__d)) == 0 : return 0.0
+    if (l := len(self.__d)) == 0 : return 0.
     elif l == 1 and 0 in self.__d : return self.__d[0]
     raise ValueError(f"Cannot convert to float: Multivector is not a scalar")
    def __int__(self) -> int:
@@ -459,7 +459,7 @@ class GA:
         and the zero Multivector if n < 0.
         For slices, return a generator over the slice.
         """
-  if isinstance(n, int) : return self.__Multivector({(1<<(n-1) if n > 0 else 0): 1.0} if n >= 0 else {})
+  if isinstance(n, int) : return self.__Multivector({(1<<(n-1) if n > 0 else 0): 1.} if n >= 0 else {})
   if not isinstance(n, slice): raise TypeError(f"GA indices must be integers or slices, not {type(n).__name__}")
   step = n.step or 1
   start = n.start or 0
