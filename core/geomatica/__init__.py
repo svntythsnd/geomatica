@@ -3,7 +3,7 @@ from abc import ABC as _ABC, abstractmethod as _absd
 from types import UnionType as _UnionType
 from dataclasses import dataclass as _dataclass
 from warnings import filterwarnings as _filterwarnings
-__version__ = '1.3.8'
+__version__ = '1.4.0'
 __author__ = 'slycedf'
 __email__ = 'svntythsnd@gmail.com'
 __license__ = 'MIT'
@@ -54,8 +54,8 @@ class IMultivector(_ABC):
  def __abs__(self) -> float:
   """Return the norm of the Multivector.""" 
  @_absd
- def __matmul__(self, grade: int) -> 'IMultivector':
-  """Extract a specific grade of the Multivector.""" 
+ def __matmul__(self, grades: int | set[int]) -> 'IMultivector':
+  """Extract a specific grade or set of grades from the Multivector.""" 
  @_absd
  def __truediv__(self, other: _Union[int, float, 'IMultivector']) -> 'IMultivector':
   pass
@@ -75,8 +75,8 @@ class IMultivector(_ABC):
  def __rxor__(self, other: int | float) -> 'IMultivector':
   """Return the wedge product of two Multivectors.""" 
  @_absd
- def __pos__(self) -> int | None:
-  """Return the grade of the Multivector if it's homogenous, None otherwise.""" 
+ def __pos__(self) -> set[int]:
+  """Return the set of grades present in the Multivector."""
  @_absd
  def __format__(self, form: str) -> str:
   pass
@@ -330,9 +330,10 @@ class GA:
       new[mask] = new.get(mask, 0) + val1*val2*basisprod
      
     return Multivector(dict(sorted(new.items())))
-   def __matmul__(self, grade: int) -> 'Multivector':
-    if not isinstance(grade, int) : return NotImplemented
-    return Multivector({mask: val for mask, val in self.__d.items() if mask.bit_count() == grade})
+   def __matmul__(self, grades: int|set[int]) -> 'Multivector':
+    if isinstance(grades, int): grades = {grades}
+    elif not isinstance(grades, set) : return NotImplemented
+    return Multivector({mask: val for mask, val in self.__d.items() if mask.bit_count() in grades})
    def __decompose(self):
     if self.__decomposition is not ... : return self.__decomposition
     commutes = lambda mask1,mask2: mask1.bit_count()*mask2.bit_count()%2 == (mask1&mask2).bit_count()%2
@@ -398,12 +399,10 @@ class GA:
      if total != 0: value = math.sqrt(abs(total))
      prod *= Multivector({0: math.cosh(value), **{mask:math.sinh(value)*self.__d[mask]/value for mask in block}})if total > 0else Multivector({0: 1, **{mask: self.__d[mask] for mask in block}})if total == 0else Multivector({0: math.cos(value), **{mask:math.sin(value)*self.__d[mask]/value for mask in block}})
     return prod if isinstance(prod, Multivector) else Multivector({0: prod})
-   def __pos__(self) -> int | None:
-    grade = None
-    for mask in self.__d.keys():
-     if grade is None: grade = mask.bit_count()
-     elif mask.bit_count() != grade : return None
-    return grade
+   def __pos__(self) -> set[int]:
+    grades = set()
+    for mask in self.__d.keys(): grades.add(mask.bit_count())
+    return grades
    def __truediv__(self, other: _Union[int, float, 'Multivector']) -> 'Multivector':
     if isinstance(other, int | float) : return Multivector({mask: value/other for mask, value in self.__d.items()},decomposition=self.__decomposition, sigma=self.__sigma)
     if not isinstance(other, Multivector):
